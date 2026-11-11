@@ -6,6 +6,7 @@ from email.policy import default
 from docx import Document
 import json, re, uuid, os, threading
 from datetime import datetime
+from knowledge_base import status as knowledge_status, search as knowledge_search
 
 ROOT=Path(__file__).resolve().parent
 DATA=ROOT/'data'; STATIC=ROOT/'static'; DB=DATA/'workspace.json'
@@ -64,6 +65,11 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path=urlparse(self.path).path
         if path=='/api/state': return self.send_json(load_db())
+        if path=='/api/knowledge/status': return self.send_json(knowledge_status())
+        if path=='/api/knowledge/search':
+            from urllib.parse import parse_qs
+            query=parse_qs(urlparse(self.path).query).get('q',[''])[0]
+            return self.send_json({'query':query,'results':knowledge_search(query)})
         if path=='/': self.path='/index.html'
         return super().do_GET()
     def do_POST(self):
