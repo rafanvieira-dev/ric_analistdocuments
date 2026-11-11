@@ -13,3 +13,12 @@
 .crosswalk-card{padding:12px;border:1px solid var(--line);border-radius:8px;color:#526a7c;font-size:11px;line-height:1.5;background:#fbfcfd}
 .relationform textarea{border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:#334b60;background:#fff;font:12px inherit;resize:vertical}
 @media(max-width:700px){.crosswalk-grid{grid-template-columns:1fr}.module-nav{padding-bottom:7px}.module-link{padding:9px 4px}.module-link .module-num{display:none}}
+
+
+/* Navegação principal enxuta: somente os quatro módulos */
+.sidebar > .nav[data-page]{display:none}
+.sidebar > .navlabel{display:none}
+.sidebar .module-nav{border:0;margin:0;padding:0}
+.sidebar .module-nav .navlabel{display:block;padding:5px 10px 13px}
+.sidebar .module-link{display:flex}
+.sidebar .module-link.active{background:#2a536c;color:#fff}
