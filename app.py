@@ -80,7 +80,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path=='/api/upload':
             msg=BytesParser(policy=default).parsebytes((f'Content-Type: {self.headers.get("Content-Type","")}\r\nMIME-Version: 1.0\r\n\r\n').encode()+raw)
             part=next((p for p in msg.iter_parts() if p.get_filename()),None) if msg.is_multipart() else None
-            if not part: return self.send_json({'error':'Envie um arquivo DOCX.'},400)
+            if not part: return self.send_json({'error':'Envie um arquivo DOCX ou PDF.'},400)
             filename=os.path.basename(part.get_filename() or 'documento.docx')
             ext=Path(filename).suffix.lower()
             if ext not in ('.docx','.pdf'): return self.send_json({'error':'Formatos aceitos nesta etapa: DOCX e PDF com texto selecionável.'},400)
@@ -92,10 +92,10 @@ class Handler(SimpleHTTPRequestHandler):
                 text='\n'.join(blocks)
                 if not text.strip(): return self.send_json({'error':'O PDF não contém texto selecionável. PDFs digitalizados exigem OCR, ainda não incluído.'},422)
             except Exception as exc:
-                tmp.unlink(missing_ok=True); return self.send_json({'error':'Não foi possível ler o DOCX: '+str(exc)},400)
+                tmp.unlink(missing_ok=True); return self.send_json({'error':'Não foi possível ler o documento: '+str(exc)},400)
             finally: tmp.unlink(missing_ok=True)
             sid=str(uuid.uuid4()); entities=extract_entities(text,sid); db=load_db()
-            source={'id':sid,'filename':filename,'title':'Recomendações de leituras sobre a história do GRES Estácio','kind':'Documento-base','text':text,'blocks':blocks,'entity_count':len(entities),'created_at':datetime.now().isoformat(timespec='minutes')}
+            source={'id':sid,'filename':filename,'title':Path(filename).stem,'kind':'Documento analisado','text':text,'blocks':blocks,'entity_count':len(entities),'created_at':datetime.now().isoformat(timespec='minutes')}
             db['sources'].append(source); db['entities'].extend(entities)
             db['notes'].append({'id':str(uuid.uuid4()),'source_id':sid,'text':'Revisar metadados de cada obra e vincular citações às páginas/edições disponíveis.','status':'Aberta'})
             save_db(db)
