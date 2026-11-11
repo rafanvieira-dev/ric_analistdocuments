@@ -13,7 +13,7 @@ _CACHE=None
 def normalize(value):
     value=unicodedata.normalize("NFKD",str(value).casefold())
     value="".join(c for c in value if not unicodedata.combining(c))
-    return re.sub(r"\\s+"," ",value).strip()
+    return re.sub(r"\s+"," ",value).strip()
 
 def _extract(path):
     ext=path.suffix.lower()
@@ -49,7 +49,7 @@ def build_index(force=False):
         if path.is_file() and path.suffix.lower() in SUPPORTED:
             try:
                 for item in _extract(path):
-                    text=re.sub(r"\\s+"," ",item["text"]).strip()
+                    text=re.sub(r"\s+"," ",item["text"]).strip()
                     if text: records.append({**item,"normalized":normalize(text)})
             except Exception as exc:
                 records.append({"source":path.name,"locator":"erro de leitura","text":f"Não foi possível indexar: {exc}","normalized":""})
