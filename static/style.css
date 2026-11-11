@@ -62,3 +62,14 @@
 .graph-rel-list{padding-left:20px;margin:8px 0;display:grid;gap:7px}
 .graph-rel-list li{font-size:11px;line-height:1.5;color:#4c6476}
 .graph-rel-list small{color:#8796a1}
+
+/* Grafo amplo, em formato de painel de rede */
+.graph-stage{height: min(78vh, 900px);min-height:680px;width:100%;background:#06142f;border:1px solid #142b4b;border-radius:12px}
+#relationSvg{width:100%;height:100%;display:block}
+.graph-node text{font-size:13px;fill:#f1f5fb;stroke:#06142f;stroke-width:4px}
+.graph-node circle{filter:drop-shadow(0 2px 4px #0008)}
+.graph-node:hover circle{stroke:#fff;stroke-width:3}
+.graph-links line{stroke:#7890b3;stroke-opacity:.38}
+.graph-detail{font-size:12px}
+.btn.danger{background:#fff0f0;border:1px solid #f0caca;color:#a13c3c}
+@media(max-width:700px){.graph-stage{height:72vh;min-height:560px}}
