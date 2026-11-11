@@ -88,7 +88,7 @@ class Handler(SimpleHTTPRequestHandler):
             try:
                 if ext=='.docx': blocks=read_docx(tmp)
                 else:
-                    pdf=fitz.open(tmp); blocks=[f'[Página {i+1}] {page.get_text(\"text\").strip()}' for i,page in enumerate(pdf) if page.get_text(\"text\").strip()]
+                    pdf=fitz.open(tmp); blocks=[f'[Página {i+1}] {page.get_text("text").strip()}' for i,page in enumerate(pdf) if page.get_text("text").strip()]
                 text='\n'.join(blocks)
                 if not text.strip(): return self.send_json({'error':'O PDF não contém texto selecionável. PDFs digitalizados exigem OCR, ainda não incluído.'},422)
             except Exception as exc:
