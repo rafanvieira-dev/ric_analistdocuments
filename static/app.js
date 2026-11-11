@@ -61,7 +61,7 @@ function drawGraph(){
  const colors={'Pessoa':'#3478a5','Organização':'#287e76','Grupo':'#568b67','Família':'#9874a8','Local':'#c28b43','Evento':'#b65e62','Data':'#82909e','Atividade':'#4e8caa','Thing':'#9b8650','Record':'#596b9c','Representação digital':'#708b91'};
  if(!all.length){host.innerHTML='<div class="graph-empty"><b>Nenhuma entidade cadastrada</b><span>Importe uma fonte e registre relações para construir a rede.</span></div>';return}
  if(!window.d3){host.innerHTML='<div class="graph-empty">A biblioteca de visualização não carregou. Atualize a página.</div>';return}
- const width=Math.max(600,host.clientWidth||900),height=Math.max(520,Math.min(760,Math.round(width*.62)));
+ const width=Math.max(1100,host.clientWidth||1100),height=Math.max(680,Math.min(980,Math.round(width*.58)));
  host.innerHTML='<div class="graph-toolbar"><div class="graph-legend">'+Object.entries(colors).map(([k,v])=>'<span><i style="background:'+v+'"></i>'+esc(k)+'</span>').join('')+'</div><div class="graph-controls"><button class="mini" id="graphZoomIn">＋</button><button class="mini" id="graphZoomOut">−</button><button class="mini" id="graphReset">Visão inicial</button><button class="mini" id="graphShowAll">Mostrar tudo</button></div></div><div class="graph-stage"><svg id="relationSvg" viewBox="0 0 '+width+' '+height+'"></svg></div><div class="graph-detail" id="graphDetail">Clique em uma entidade para abrir suas conexões. Clique novamente para avançar para o próximo nível de relações.</div><p class="hint graph-count" id="graphCount"></p>';
  const svg=d3.select('#relationSvg'),root=svg.append('g'),zoom=d3.zoom().scaleExtent([.2,3]).on('zoom',ev=>root.attr('transform',ev.transform));svg.call(zoom);
  const connectedIds=new Set();relations.forEach(r=>{connectedIds.add(r.subject);connectedIds.add(r.object)});
@@ -77,7 +77,7 @@ function drawGraph(){
   const shown=all.filter(n=>visible.has(n.id));
   const links=relations.filter(e=>visible.has(e.subject)&&visible.has(e.object)).map(e=>({source:e.subject,target:e.object,predicate:e.predicate,status:e.status||'Pendente'}));
   linkSel=linkLayer.selectAll('line').data(links,d=>d.id||d.source.id+'|'+d.target.id+'|'+d.predicate).join('line').attr('stroke',d=>d.status==='Validada'?'#287e76':'#b7c5ce').attr('stroke-width',d=>d.status==='Validada'?2.5:1.5).attr('stroke-dasharray',d=>d.status==='Validada'?'':'5 4').attr('opacity',.85);
-  nodeSel=nodeLayer.selectAll('g').data(shown,d=>d.id).join(enter=>{const g=enter.append('g').attr('class','graph-node').style('cursor','pointer');g.append('circle').attr('r',d=>d.type==='Organização'||d.type==='Grupo'?10:7).attr('fill',d=>colors[d.type]||'#647b8b').attr('stroke','#fff').attr('stroke-width',2);g.append('text').attr('x',12).attr('y',4).attr('font-size',11).attr('fill','#2d4558').attr('paint-order','stroke').attr('stroke','#fff').attr('stroke-width',3).attr('stroke-linejoin','round').text(d=>d.name.length>32?d.name.slice(0,30)+'…':d.name);g.append('title').text(d=>d.name+' · '+d.type);return g;});
+  nodeSel=nodeLayer.selectAll('g').data(shown,d=>d.id).join(enter=>{const g=enter.append('g').attr('class','graph-node').style('cursor','pointer');g.append('circle').attr('r',d=>d.type==='Organização'||d.type==='Grupo'?13:10).attr('fill',d=>colors[d.type]||'#647b8b').attr('stroke','#fff').attr('stroke-width',2);g.append('text').attr('x',12).attr('y',4).attr('font-size',13).attr('fill','#f1f5fb').attr('paint-order','stroke').attr('stroke','#06142f').attr('stroke-width',4).attr('stroke-linejoin','round').text(d=>d.name.length>32?d.name.slice(0,30)+'…':d.name);g.append('title').text(d=>d.name+' · '+d.type);return g;});
   nodeSel.classed('expanded',d=>expanded.has(d.id)).on('click',(ev,d)=>{ev.stopPropagation();expandNode(d)}).call(d3.drag().on('start',(ev,d)=>{if(!ev.active)simulation.alphaTarget(.25).restart();d.fx=d.x;d.fy=d.y}).on('drag',(ev,d)=>{d.fx=ev.x;d.fy=ev.y}).on('end',(ev,d)=>{if(!ev.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}));
   simulation.nodes(shown).on('tick',()=>{linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);nodeSel.attr('transform',d=>'translate('+d.x+','+d.y+')')});
   simulation.force('link').links(links);simulation.alpha(.8).restart();
@@ -240,3 +240,16 @@ render();
  const originalRender=render;render=function(){originalRender();renderWorkspace()};
  renderWorkspace();
 })();
+
+// Zera os dados locais deste aplicativo. A ação não pode ser desfeita.
+const resetButton=$('#resetApp');
+if(resetButton)resetButton.onclick=()=>{
+ if(!confirm('ATENÇÃO: isso apagará fontes, entidades, relações, descrições, notas e a base de conhecimento deste navegador. Exporte um backup antes. Deseja continuar?'))return;
+ if(!confirm('Confirma definitivamente apagar todos os dados locais do Sistema RiC?'))return;
+ localStorage.removeItem(KEY);
+ localStorage.removeItem('ric_knowledge_local_v1');
+ state=emptyState();
+ saveState();
+ alert('Aplicativo zerado. A página será recarregada.');
+ location.reload();
+};
