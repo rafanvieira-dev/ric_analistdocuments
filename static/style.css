@@ -56,3 +56,9 @@
 .graph-empty{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#718493;text-align:center}
 .graph-empty b{color:#38556b;font-size:14px}
 .graph-empty span{font-size:11px}
+
+.graph-detail details{margin-top:10px;border-top:1px solid #e0e8ed;padding-top:9px}
+.graph-detail summary{cursor:pointer;color:#285d75;font-weight:700}
+.graph-rel-list{padding-left:20px;margin:8px 0;display:grid;gap:7px}
+.graph-rel-list li{font-size:11px;line-height:1.5;color:#4c6476}
+.graph-rel-list small{color:#8796a1}
