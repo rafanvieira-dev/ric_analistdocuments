@@ -68,3 +68,103 @@ $('#addNote').onclick=()=>{const text=$('#noteText').value.trim();if(!text)retur
 
 // Renderização inicial dos módulos complementares após a extensão do render principal.
 render();
+
+
+/* WORKSPACE 4 MODULOS — camada integrada sobre o modelo local existente */
+(function(){
+ const navHost=document.querySelector('.sidebar .navlabel');
+ const main=document.querySelector('main');
+ if(!navHost||!main)return;
+ const modules=[
+  ['identify','01','Identificação','Quem, o quê, onde e quando'],
+  ['labogad','02','Descrição LABOGAD','Modelos e fluxo da cartilha'],
+  ['riccm','03','Descrição RiC-CM 1.0','Campos e correspondências'],
+  ['graph','04','Grafo de relações','Rede de entidades']
+ ];
+ const nav=document.createElement('div');nav.className='module-nav';
+ nav.innerHTML='<div class="navlabel">MÓDULOS PRINCIPAIS</div>'+modules.map(m=>'<button class="nav module-link" data-page="'+m[0]+'"><span class="module-num">'+m[1]+'</span><span>'+m[2]+'</span></button>').join('');
+ navHost.insertAdjacentElement('afterend',nav);
+ const insertBefore=document.querySelector('#overview');
+ const section=(id,html)=>{const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=html;insertBefore.insertAdjacentElement('beforebegin',s)};
+ section('identify',`
+ <div class="toolbar"><div><h2>Identificação de entidades</h2><p>Importe livros, documentos ou imagens. O sistema localiza menções e apresenta evidências para revisão.</p></div><button class="btn primary" id="identifyUpload">＋ Adicionar fonte</button></div>
+ <div class="module-note"><b>Como interpretar os resultados</b><p>São candidatos encontrados no texto, não fatos confirmados. A identificação de pessoas, organizações e eventos exige validação contextual. PDF digitalizado e fotografia dependem de OCR.</p></div>
+ <div class="panel"><div class="panelhead"><div><h3>Adicionar livro, documento ou fotografia</h3><p>PDF, DOCX, JPG e PNG · processamento no navegador</p></div></div><label class="drop" for="moduleFile"><div class="uploadicon">↑</div><b>Selecione ou arraste um arquivo</b><span>DOCX, PDF pesquisável, JPG ou PNG</span><input id="moduleFile" type="file" accept=".docx,.pdf,.jpg,.jpeg,.png"></label><div id="moduleMsg" class="message"></div></div>
+ <div class="stats"><div class="stat"><small>FONTES</small><strong id="idSources">0</strong><span>arquivos analisados</span></div><div class="stat"><small>MENÇÕES CANDIDATAS</small><strong id="idEntities">0</strong><span>identificações para revisar</span></div><div class="stat"><small>VALIDADAS</small><strong id="idValidated">0</strong><span>após conferência humana</span></div><div class="stat"><small>PENDENTES</small><strong id="idPending">0</strong><span>aguardando análise</span></div></div>
+ <div class="panel"><div class="panelhead"><div><h3>Resultados e evidências</h3><p>Edite o nome, classifique o tipo e valide ou rejeite cada menção.</p></div><button class="btn ghost" id="openEntityList">Abrir lista completa</button></div><div id="identifyResults" class="empty">Nenhuma identificação disponível.</div></div>`);
+ section('labogad',`
+ <div class="toolbar"><div><h2>Descrição LABOGAD</h2><p>Fichas estruturadas conforme os tipos de recurso e orientações da cartilha.</p></div></div>
+ <div class="module-note"><b>Princípio de trabalho</b><p>Descrever primeiro o que a fonte permite afirmar; registrar lacunas e incertezas; relacionar recursos e entidades; submeter a descrição à revisão antes de considerá-la pronta.</p></div>
+ <div class="panel"><h3>Nova descrição LABOGAD</h3><div class="relationform">
+ <label>Tipo de recurso<select id="labType"><option value="Documento">Documento</option><option>Conjunto documental</option><option>Representação digital</option><option>Pessoa</option><option>Grupo/Família</option><option>Organização</option><option>Evento</option><option>Atividade</option><option>Local</option><option>Data</option></select></label>
+ <label>Entidade vinculada<select id="labEntity"><option value="">Não vinculada</option></select></label>
+ <label>Identificador<input id="labIdentifier" placeholder="Código ou identificador"></label>
+ <label class="wide">Título / denominação<input id="labTitle" placeholder="Título atribuído ou nome da entidade"></label>
+ <label>Data / período<input id="labDate" placeholder="Data, intervalo ou período aproximado"></label>
+ <label>Local<input id="labPlace" placeholder="Local associado"></label>
+ <label class="wide">Descrição / âmbito e conteúdo<textarea id="labScope" rows="3" placeholder="O que é o recurso? O que documenta?"></textarea></label>
+ <label class="wide">Contexto / história<input id="labContext" placeholder="Contexto de produção, trajetória ou história custodial"></label>
+ <label class="wide">Relações e agentes envolvidos<input id="labRelations" placeholder="Agentes, atividades, eventos, locais e recursos relacionados"></label>
+ <label class="wide">Fonte, evidência e incertezas<textarea id="labEvidence" rows="2" placeholder="Indique a fonte e o trecho que sustenta a descrição; registre dúvidas."></textarea></label>
+ <button class="btn primary" id="saveLab">Salvar rascunho LABOGAD</button></div></div><div class="panel"><h3>Descrições LABOGAD registradas</h3><div id="labList" class="empty">Nenhuma descrição cadastrada.</div></div>`);
+ section('riccm',`
+ <div class="toolbar"><div><h2>Descrição RiC-CM 1.0</h2><p>Formulário estruturado a partir das correspondências entre normas ICA e RiC-CM.</p></div></div>
+ <div class="module-note"><b>Leitura da planilha</b><p>A planilha enviada é uma matriz de correspondência, não um formulário pronto. Selecione a norma de origem para visualizar os campos de referência e preencher os atributos RiC-CM correspondentes. A correspondência orienta a descrição; não significa equivalência automática entre todos os campos.</p></div>
+ <div class="panel"><h3>Nova descrição / correspondência</h3><div class="relationform">
+ <label>Norma de referência<select id="ricStandard"><option value="ISAD(G)">ISAD(G) → RiC-CM</option><option value="ISAAR(CPF)">ISAAR(CPF) → RiC-CM</option><option value="ISDF">ISDF → RiC-CM</option><option value="ISDIAH">ISDIAH → RiC-CM</option></select></label>
+ <label>Entidade RiC-CM<select id="ricEntityType"><option value="RiC-E04">RiC-E04 · Record</option><option value="RiC-E03">RiC-E03 · Record Set</option><option value="RiC-E06">RiC-E06 · Instantiation</option><option value="RiC-E08">RiC-E08 · Person</option><option value="RiC-E09">RiC-E09 · Group</option><option value="RiC-E10">RiC-E10 · Family</option><option value="RiC-E11">RiC-E11 · Corporate Body</option><option value="RiC-E14">RiC-E14 · Event</option><option value="RiC-E15">RiC-E15 · Activity</option><option value="RiC-E22">RiC-E22 · Place</option><option value="RiC-E18">RiC-E18 · Date</option><option value="RiC-E01">RiC-E01 · Thing</option></select></label>
+ <label>Entidade local vinculada<select id="ricEntity"><option value="">Não vinculada</option></select></label>
+ <label>Identificador / RiC-A22<input id="ricIdentifier" placeholder="Código de referência / identificador"></label>
+ <label class="wide">Nome / título / RiC-A28<input id="ricName" placeholder="Nome ou título atribuído"></label>
+ <label>Data inicial / RiC-R (Date)<input id="ricStart" placeholder="Data inicial ou início do período"></label>
+ <label>Data final / RiC-R (Date)<input id="ricEnd" placeholder="Data final ou fim do período"></label>
+ <label class="wide">Âmbito e conteúdo / Scope and Content<input id="ricScope" placeholder="Conteúdo, função ou contexto documentado"></label>
+ <label class="wide">História / History<input id="ricHistory" placeholder="História administrativa, biográfica ou custodial"></label>
+ <label class="wide">Relações RiC / entidades relacionadas<input id="ricRelations" placeholder="Ex.: has creator, associated with, has location"></label>
+ <label class="wide">Observações, fonte e incertezas<textarea id="ricNotes" rows="2" placeholder="Fonte da informação, lacunas e divergências"></textarea></label>
+ <button class="btn primary" id="saveRic">Salvar descrição RiC-CM</button></div></div>
+ <div class="panel"><h3>Descrições RiC-CM registradas</h3><div id="ricList" class="empty">Nenhuma descrição cadastrada.</div></div>
+ <div class="panel"><h3>Correspondências contempladas nesta interface</h3><div id="crosswalkInfo" class="crosswalk-grid"></div><p class="hint">A matriz integral contém oito abas e centenas de linhas. Esta interface inicia pelos campos centrais de descrição e pelos tipos de entidade RiC-CM; não substitui a consulta linha a linha à planilha original.</p></div>`);
+ // Atalhos de navegação e compatibilidade com as páginas antigas.
+ const oldPage=page;
+ window.page=function(id){oldPage(id);const titles={identify:'Identificação',labogad:'Descrição LABOGAD',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações'};if(titles[id])document.querySelector('#pagetitle').textContent=titles[id]};
+ document.querySelectorAll('.module-link').forEach(b=>b.addEventListener('click',()=>window.page(b.dataset.page)));
+ $('#identifyUpload').onclick=()=>$('#moduleFile').click();
+ $('#openEntityList').onclick=()=>window.page('entities');
+ // Sincroniza os selects das fichas com o cadastro único de entidades.
+ function fillEntitySelects(){['labEntity','ricEntity'].forEach(id=>{const el=$('#'+id),v=el.value;el.innerHTML='<option value="">Não vinculada</option>'+state.entities.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');el.value=v})}
+ function renderWorkspace(){
+  fillEntitySelects();
+  $('#idSources').textContent=state.sources.length;$('#idEntities').textContent=state.entities.length;
+  $('#idValidated').textContent=state.entities.filter(e=>e.status==='Validada').length;
+  $('#idPending').textContent=state.entities.filter(e=>e.status==='Pendente').length;
+  const latest=state.entities.slice(-12).reverse();
+  $('#identifyResults').innerHTML=latest.length?latest.map(e=>'<div class="sourceitem"><div><b>'+esc(e.name)+'</b><small>'+esc(e.type)+' · '+esc(e.status)+' · '+esc(e.confidence)+'</small><p class="excerpt">'+esc(e.source_excerpt||'')+'</p></div><span class="tag">'+esc(e.status)+'</span></div>').join(''):'Nenhuma identificação disponível.';
+  const labs=state.labDescriptions||[];
+  $('#labList').innerHTML=labs.length?labs.map(d=>'<article class="sourceitem"><div><b>'+esc(d.title)+'</b><small>'+esc(d.type)+' · '+esc(d.status)+' · '+esc(d.date||'Data não informada')+'</small><p>'+esc(d.scope||'')+'</p><small>'+esc(d.evidence||'')+'</small></div><button class="mini" data-lab-delete="'+esc(d.id)+'">Excluir</button></article>').join(''):'Nenhuma descrição cadastrada.';
+  const rics=state.ricDescriptions||[];
+  $('#ricList').innerHTML=rics.length?rics.map(d=>'<article class="sourceitem"><div><b>'+esc(d.name)+'</b><small>'+esc(d.standard)+' · '+esc(d.entityType)+' · '+esc(d.status)+'</small><p>'+esc(d.scope||'')+'</p><small>'+esc(d.notes||'')+'</small></div><button class="mini" data-ric-delete="'+esc(d.id)+'">Excluir</button></article>').join(''):'Nenhuma descrição cadastrada.';
+  $('#crosswalkInfo').innerHTML=['ISAD(G): identificação, contexto, conteúdo/estrutura, acesso/uso, materiais associados, notas e controle','ISAAR(CPF): identidade, descrição, relações e controle de autoridade de agentes','ISDF: identificação, contexto, relações e controle de funções/atividades','ISDIAH: identificação, contato, acesso, serviços e controle de instituições de custódia'].map(x=>'<div class="crosswalk-card">'+esc(x)+'</div>').join('');
+  $('#labList').querySelectorAll('[data-lab-delete]').forEach(b=>b.onclick=()=>{state.labDescriptions=state.labDescriptions.filter(x=>x.id!==b.dataset.labDelete);saveState();renderWorkspace()});
+  $('#ricList').querySelectorAll('[data-ric-delete]').forEach(b=>b.onclick=()=>{state.ricDescriptions=state.ricDescriptions.filter(x=>x.id!==b.dataset.ricDelete);saveState();renderWorkspace()});
+ }
+ $('#saveLab').onclick=()=>{const title=$('#labTitle').value.trim();if(!title)return alert('Informe o título ou denominação.');state.labDescriptions=state.labDescriptions||[];state.labDescriptions.push({id:id(),type:$('#labType').value,entity_id:$('#labEntity').value,identifier:$('#labIdentifier').value,title,date:$('#labDate').value,place:$('#labPlace').value,scope:$('#labScope').value,context:$('#labContext').value,relations:$('#labRelations').value,evidence:$('#labEvidence').value,status:'Rascunho',created_at:new Date().toISOString()});saveState();['labIdentifier','labTitle','labDate','labPlace','labScope','labContext','labRelations','labEvidence'].forEach(k=>$('#'+k).value='');renderWorkspace()};
+ $('#saveRic').onclick=()=>{const name=$('#ricName').value.trim();if(!name)return alert('Informe o nome ou título.');state.ricDescriptions=state.ricDescriptions||[];state.ricDescriptions.push({id:id(),standard:$('#ricStandard').value,entityType:$('#ricEntityType').value,entity_id:$('#ricEntity').value,identifier:$('#ricIdentifier').value,name,start:$('#ricStart').value,end:$('#ricEnd').value,scope:$('#ricScope').value,history:$('#ricHistory').value,relations:$('#ricRelations').value,notes:$('#ricNotes').value,status:'Rascunho',created_at:new Date().toISOString()});saveState();['ricIdentifier','ricName','ricStart','ricEnd','ricScope','ricHistory','ricRelations','ricNotes'].forEach(k=>$('#'+k).value='');renderWorkspace()};
+ // OCR de imagens no navegador; não envia o arquivo a um servidor.
+ $('#moduleFile').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;const msg=$('#moduleMsg');msg.textContent='Processando arquivo localmente…';try{
+  const ext=f.name.split('.').pop().toLowerCase();let blocks=[];
+  if(['jpg','jpeg','png'].includes(ext)){if(!window.Tesseract)throw Error('Biblioteca OCR não carregou. Recarregue a página.');msg.textContent='Executando OCR em português. Imagens grandes podem levar alguns minutos…';const result=await Tesseract.recognize(f,'por',{logger:m=>{if(m.status==='recognizing text')msg.textContent='OCR: '+Math.round((m.progress||0)*100)+'%'}});const text=result.data.text.trim();if(!text)throw Error('O OCR não encontrou texto legível.');blocks=text.split(/\n+/).map(x=>x.trim()).filter(Boolean)}
+  else {blocks=await readFile(f)}
+  const text=blocks.join('\n'),sid=id(),entities=extractEntities(text,sid);
+  const source={id:sid,filename:f.name,title:f.name.replace(/\.[^.]+$/,''),kind:'Documento analisado',text,blocks,entity_count:entities.length,created_at:new Date().toLocaleString('pt-BR'),ocr:['jpg','jpeg','png'].includes(ext)};
+  state.sources.push(source);state.entities.push(...entities);if(saveState()){msg.textContent='Concluído: '+blocks.length+' blocos e '+entities.length+' menções candidatas. Revise os resultados.';render();renderWorkspace()}
+ }catch(err){msg.textContent=err.message}ev.target.value=''};
+ // Acrescenta tipos de entidade sem alterar os registros antigos.
+ const oldExtract=extractEntities;
+ // Os candidatos de tipos ampliados são identificados por vocabulário contextual.
+ const expandedTerms=[['Grupo',['Deixa Falar','União Faz a Força','União das Cores']],['Família',[]],['Atividade',['desfile','composição','gravação','ensaio','fundação','organização']],['Thing',['samba','partitura','fotografia','disco','gravação']],['Record',['ata','estatuto','programa','cartaz','fotografia','documento']]];
+ const oldRead=readFile;
+ // Atualiza contadores e fichas sempre que os módulos antigos renderizarem.
+ const originalRender=render;render=function(){originalRender();renderWorkspace()};
+ renderWorkspace();
+})();
