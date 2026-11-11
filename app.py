@@ -41,14 +41,14 @@ def extract_entities(text, source_id):
     found=[]; lexicons=[('Pessoa',PEOPLE),('Organização',ORGS),('Local',PLACES),('Evento',EVENTS)]
     for kind,terms in lexicons:
         for term in terms:
-            pattern=re.compile(r'(?<![\\wÀ-ÿ])'+re.escape(term)+r'(?![\\wÀ-ÿ])',re.I)
+            pattern=re.compile(r'(?<![\wÀ-ÿ])'+re.escape(term)+r'(?![\wÀ-ÿ])',re.I)
             for match in list(pattern.finditer(text))[:5]:
                 a=max(0,match.start()-190); b=min(len(text),match.end()+220)
-                found.append({'id':str(uuid.uuid4()),'name':term,'type':kind,'source_id':source_id,'source_excerpt':text[a:b].replace('\\n',' '),'position':match.start(),'confidence':'Média' if kind!='Evento' else 'Baixa','status':'Pendente','evidence':'Menção literal encontrada; validar identidade, papel e contexto.','variants':[]})
-    date_re=r'(?<!\\d)(?:\\d{1,2}/\\d{1,2}/\\d{4}|\\d{4}|década de \\d{4}|final da década de \\d{4}|início da década de \\d{4})(?!\\d)'
+                found.append({'id':str(uuid.uuid4()),'name':term,'type':kind,'source_id':source_id,'source_excerpt':text[a:b].replace('\n',' '),'position':match.start(),'confidence':'Média' if kind!='Evento' else 'Baixa','status':'Pendente','evidence':'Menção literal encontrada; validar identidade, papel e contexto.','variants':[]})
+    date_re=r'(?<!\d)(?:\d{1,2}/\d{1,2}/\d{4}|\d{4}|década de \d{4}|final da década de \d{4}|início da década de \d{4})(?!\d)'
     for m in re.finditer(date_re,text,re.I):
         a=max(0,m.start()-180); b=min(len(text),m.end()+200)
-        found.append({'id':str(uuid.uuid4()),'name':m.group(0),'type':'Data','source_id':source_id,'source_excerpt':text[a:b].replace('\\n',' '),'position':m.start(),'confidence':'Média','status':'Pendente','evidence':'Expressão temporal localizada. Classificar a natureza da data.','variants':[]})
+        found.append({'id':str(uuid.uuid4()),'name':m.group(0),'type':'Data','source_id':source_id,'source_excerpt':text[a:b].replace('\n',' '),'position':m.start(),'confidence':'Média','status':'Pendente','evidence':'Expressão temporal localizada. Classificar a natureza da data.','variants':[]})
     out=[]; seen=set()
     for e in sorted(found,key=lambda x:x['position']):
         key=(e['type'],e['name'].casefold())
@@ -71,14 +71,14 @@ class Handler(SimpleHTTPRequestHandler):
         if length>25*1024*1024: return self.send_json({'error':'Arquivo excede o limite de 25 MB.'},413)
         raw=self.rfile.read(length)
         if path=='/api/upload':
-            msg=BytesParser(policy=default).parsebytes((f'Content-Type: {self.headers.get("Content-Type","")}\\r\\nMIME-Version: 1.0\\r\\n\\r\\n').encode()+raw)
+            msg=BytesParser(policy=default).parsebytes((f'Content-Type: {self.headers.get("Content-Type","")}\r\nMIME-Version: 1.0\r\n\r\n').encode()+raw)
             part=next((p for p in msg.iter_parts() if p.get_filename()),None) if msg.is_multipart() else None
             if not part: return self.send_json({'error':'Envie um arquivo DOCX.'},400)
             filename=os.path.basename(part.get_filename() or 'documento.docx')
             if not filename.lower().endswith('.docx'): return self.send_json({'error':'Formato aceito: DOCX.'},400)
             tmp=DATA/(str(uuid.uuid4())+'.docx'); tmp.write_bytes(part.get_payload(decode=True) or b'')
             try:
-                blocks=read_docx(tmp); text='\\n'.join(blocks)
+                blocks=read_docx(tmp); text='\n'.join(blocks)
             except Exception as exc:
                 tmp.unlink(missing_ok=True); return self.send_json({'error':'Não foi possível ler o DOCX: '+str(exc)},400)
             finally: tmp.unlink(missing_ok=True)
