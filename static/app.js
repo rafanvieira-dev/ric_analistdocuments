@@ -36,3 +36,32 @@ $('#export').onclick=()=>download('sistema-ric-backup.json',JSON.stringify(state
 const backupBtn=document.createElement('button');backupBtn.className='btn ghost';backupBtn.textContent='Importar backup';backupBtn.onclick=()=>$('#backupFile').click();$('.headright').appendChild(backupBtn);
 const backupInput=document.createElement('input');backupInput.type='file';backupInput.accept='.json,application/json';backupInput.id='backupFile';backupInput.hidden=true;backupInput.onchange=async()=>{const f=backupInput.files[0];if(!f)return;try{const data=JSON.parse(await f.text());if(!data||!Array.isArray(data.sources)||!Array.isArray(data.entities))throw Error('Arquivo não parece ser um backup do Sistema RiC.');if(!confirm('Substituir os dados atuais por este backup?'))return;state={...emptyState(),...data};if(saveState()){render();alert('Backup restaurado.')}}catch(e){alert(e.message)}backupInput.value=''};document.body.appendChild(backupInput);
 render();
+
+// Módulos complementares: documentos, grafo, descrições e pendências.
+const oldRender=render;
+render=function(){oldRender();renderModules()};
+function renderModules(){
+ const sourceOpts=state.sources.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.title)+'</option>').join('');
+ if($('#noteSource'))$('#noteSource').innerHTML='<option value="">Sem fonte específica</option>'+sourceOpts;
+ if($('#descEntity'))$('#descEntity').innerHTML='<option value="">Sem entidade vinculada</option>'+state.entities.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');
+ if($('#sourceList'))$('#sourceList').innerHTML=state.sources.length?state.sources.map(s=>'<article class="sourceitem"><div><b>'+esc(s.title)+'</b><small>'+esc(s.filename)+' · '+esc(s.created_at)+' · '+(s.blocks||[]).length+' blocos</small></div><div class="rowactions"><button class="mini" data-open-source="'+esc(s.id)+'">Ler documento</button><button class="mini" data-delete-source="'+esc(s.id)+'">Excluir</button></div></article>').join(''):'Nenhuma fonte importada ainda.';
+ $('#sourceList')?.querySelectorAll('[data-open-source]').forEach(b=>b.onclick=()=>{const s=state.sources.find(x=>x.id===b.dataset.openSource);let w=window.open('','_blank');if(w){w.document.write('<meta charset="utf-8"><title>'+esc(s.title)+'</title><style>body{font:16px/1.7 system-ui;max-width:900px;margin:40px auto;padding:0 20px;color:#243c50}h1{font-size:24px}</style><h1>'+esc(s.title)+'</h1><p>'+esc(s.filename)+'</p><pre style="white-space:pre-wrap;font:inherit">'+esc(s.text|| (s.blocks||[]).join('\n'))+'</pre>');w.document.close()}});
+ $('#sourceList')?.querySelectorAll('[data-delete-source]').forEach(b=>b.onclick=()=>{if(!confirm('Excluir esta fonte e manter as entidades já extraídas?'))return;state.sources=state.sources.filter(s=>s.id!==b.dataset.deleteSource);saveState();render()});
+ $('#descriptionList').innerHTML=(state.descriptions||[]).length?state.descriptions.map(d=>'<article class="sourceitem"><div><b>'+esc(d.title)+'</b><small>'+esc(d.level)+' · '+esc(d.date||'Data não informada')+' · '+esc(d.status)+'</small><p>'+esc(d.scope||'')+'</p><small>'+esc(d.history||'')+' '+esc(d.notes||'')+'</small></div><button class="mini" data-del-desc="'+esc(d.id)+'">Excluir</button></article>').join(''):'Nenhuma ficha cadastrada.';
+ $('#descriptionList').querySelectorAll('[data-del-desc]').forEach(b=>b.onclick=()=>{state.descriptions=state.descriptions.filter(d=>d.id!==b.dataset.delDesc);saveState();render()});
+ $('#noteList').innerHTML=state.notes.length?state.notes.map(n=>'<article class="sourceitem"><div><b>'+esc(n.text)+'</b><small>'+esc(state.sources.find(s=>s.id===n.source_id)?.title||'Sem fonte')+' · '+esc(n.status||'Aberta')+'</small></div><div class="rowactions"><button class="mini" data-note-done="'+esc(n.id)+'">Concluir</button><button class="mini" data-note-del="'+esc(n.id)+'">Excluir</button></div></article>').join(''):'Nenhuma nota registrada.';
+ $('#noteList').querySelectorAll('[data-note-done]').forEach(b=>b.onclick=()=>{const n=state.notes.find(x=>x.id===b.dataset.noteDone);n.status=n.status==='Concluída'?'Aberta':'Concluída';saveState();render()});
+ $('#noteList').querySelectorAll('[data-note-del]').forEach(b=>b.onclick=()=>{state.notes=state.notes.filter(n=>n.id!==b.dataset.noteDel);saveState();render()});
+ drawGraph();
+}
+function drawGraph(){
+ const host=$('#graphView');if(!host)return;const nodes=state.entities,edges=state.relations;if(!nodes.length){host.innerHTML='<p class="empty">Importe documentos para identificar entidades e registrar relações.</p>';return}
+ const width=Math.max(650,host.clientWidth||800),height=380,cx=width/2,cy=height/2,r=Math.min(width*.38,145),pos={};
+ nodes.forEach((n,i)=>{const a=2*Math.PI*i/Math.max(nodes.length,1)-Math.PI/2;pos[n.id]={x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)}});
+ let svg='<svg viewBox="0 0 '+width+' '+height+'" width="100%" role="img" aria-label="Grafo de entidades e relações">';
+ edges.forEach(e=>{const a=pos[e.subject],b=pos[e.object];if(a&&b)svg+='<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="#91aab8" stroke-width="2"/>'});
+ nodes.slice(0,100).forEach(n=>{const p=pos[n.id];svg+='<g><circle cx="'+p.x+'" cy="'+p.y+'" r="7" fill="#287e76"/><text x="'+(p.x+10)+'" y="'+(p.y-8)+'" font-size="11" fill="#263e52">'+esc(n.name.slice(0,28))+'</text></g>'});
+ svg+='</svg>';host.innerHTML=svg+(nodes.length>100?'<p class="hint">Exibindo as primeiras 100 entidades.</p>':'');
+}
+$('#saveDescription').onclick=()=>{const title=$('#descTitle').value.trim();if(!title)return alert('Informe o título da descrição.');state.descriptions=state.descriptions||[];state.descriptions.push({id:id(),entity_id:$('#descEntity').value,level:$('#descLevel').value,title,date:$('#descDate').value,scope:$('#descScope').value,history:$('#descHistory').value,notes:$('#descNotes').value,status:'Rascunho',created_at:new Date().toISOString()});['descTitle','descDate','descScope','descHistory','descNotes'].forEach(k=>$('#'+k).value='');saveState();render()};
+$('#addNote').onclick=()=>{const text=$('#noteText').value.trim();if(!text)return alert('Escreva a nota.');state.notes.push({id:id(),source_id:$('#noteSource').value,text,status:'Aberta',created_at:new Date().toISOString()});$('#noteText').value='';saveState();render()};
