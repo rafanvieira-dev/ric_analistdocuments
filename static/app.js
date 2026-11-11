@@ -56,17 +56,23 @@ function renderModules(){
 }
 function drawGraph(){
  const host=$('#graphView');if(!host)return;
- const all=state.entities.map(n=>({...n})),byId=new Map(all.map(n=>[n.id,n]));
+ // Somente entidades validadas entram no grafo. Relações precisam ligar dois nós validados.
+ const all=state.entities.filter(n=>n.status==='Validada').map(n=>({...n}));
+ const byId=new Map(all.map(n=>[n.id,n]));
  const relations=state.relations.filter(e=>byId.has(e.subject)&&byId.has(e.object));
+ const degree=new Map(all.map(n=>[n.id,0]));
+ relations.forEach(r=>{degree.set(r.subject,(degree.get(r.subject)||0)+1);degree.set(r.object,(degree.get(r.object)||0)+1)});
+ const maxDegree=Math.max(1,...degree.values());
+ const nodeRadius=n=>{const d=degree.get(n.id)||0;return 9+Math.sqrt(d/maxDegree)*25};
  const colors={'Pessoa':'#3478a5','Organização':'#287e76','Grupo':'#568b67','Família':'#9874a8','Local':'#c28b43','Evento':'#b65e62','Data':'#82909e','Atividade':'#4e8caa','Thing':'#9b8650','Record':'#596b9c','Representação digital':'#708b91'};
- if(!all.length){host.innerHTML='<div class="graph-empty"><b>Nenhuma entidade cadastrada</b><span>Importe uma fonte e registre relações para construir a rede.</span></div>';return}
+ if(!all.length||!relations.length){host.innerHTML='<div class="graph-empty"><b>Nenhuma entidade validada com relações</b><span>O grafo exibirá somente entidades validadas que tenham pelo menos uma ligação registrada.</span></div>';return}
  if(!window.d3){host.innerHTML='<div class="graph-empty">A biblioteca de visualização não carregou. Atualize a página.</div>';return}
  const width=Math.max(1100,host.clientWidth||1100),height=Math.max(680,Math.min(980,Math.round(width*.58)));
  host.innerHTML='<div class="graph-toolbar"><div class="graph-legend">'+Object.entries(colors).map(([k,v])=>'<span><i style="background:'+v+'"></i>'+esc(k)+'</span>').join('')+'</div><div class="graph-controls"><button class="mini" id="graphZoomIn">＋</button><button class="mini" id="graphZoomOut">−</button><button class="mini" id="graphReset">Visão inicial</button><button class="mini" id="graphShowAll">Mostrar tudo</button></div></div><div class="graph-stage"><svg id="relationSvg" viewBox="0 0 '+width+' '+height+'"></svg></div><div class="graph-detail" id="graphDetail">Clique em uma entidade para abrir suas conexões. Clique novamente para avançar para o próximo nível de relações.</div><p class="hint graph-count" id="graphCount"></p>';
  const svg=d3.select('#relationSvg'),root=svg.append('g'),zoom=d3.zoom().scaleExtent([.2,3]).on('zoom',ev=>root.attr('transform',ev.transform));svg.call(zoom);
  const connectedIds=new Set();relations.forEach(r=>{connectedIds.add(r.subject);connectedIds.add(r.object)});
  // Começa com um núcleo pequeno, sem despejar todas as entidades na tela.
- const initial=all.filter(n=>connectedIds.has(n.id)).slice(0,Math.min(18,connectedIds.size));
+ const initial=all.filter(n=>connectedIds.has(n.id)).sort((a,b)=>(degree.get(b.id)||0)-(degree.get(a.id)||0)).slice(0,Math.min(18,connectedIds.size));
  let visible=new Set(initial.map(n=>n.id)),depth=new Map(),expanded=new Set();
  initial.forEach(n=>depth.set(n.id,0));
  if(!initial.length)all.slice(0,18).forEach(n=>{visible.add(n.id);depth.set(n.id,0)});
@@ -77,11 +83,11 @@ function drawGraph(){
   const shown=all.filter(n=>visible.has(n.id));
   const links=relations.filter(e=>visible.has(e.subject)&&visible.has(e.object)).map(e=>({source:e.subject,target:e.object,predicate:e.predicate,status:e.status||'Pendente'}));
   linkSel=linkLayer.selectAll('line').data(links,d=>d.id||d.source.id+'|'+d.target.id+'|'+d.predicate).join('line').attr('stroke',d=>d.status==='Validada'?'#287e76':'#b7c5ce').attr('stroke-width',d=>d.status==='Validada'?2.5:1.5).attr('stroke-dasharray',d=>d.status==='Validada'?'':'5 4').attr('opacity',.85);
-  nodeSel=nodeLayer.selectAll('g').data(shown,d=>d.id).join(enter=>{const g=enter.append('g').attr('class','graph-node').style('cursor','pointer');g.append('circle').attr('r',d=>d.type==='Organização'||d.type==='Grupo'?13:10).attr('fill',d=>colors[d.type]||'#647b8b').attr('stroke','#fff').attr('stroke-width',2);g.append('text').attr('x',12).attr('y',4).attr('font-size',13).attr('fill','#f1f5fb').attr('paint-order','stroke').attr('stroke','#06142f').attr('stroke-width',4).attr('stroke-linejoin','round').text(d=>d.name.length>32?d.name.slice(0,30)+'…':d.name);g.append('title').text(d=>d.name+' · '+d.type);return g;});
+  nodeSel=nodeLayer.selectAll('g').data(shown,d=>d.id).join(enter=>{const g=enter.append('g').attr('class','graph-node').style('cursor','pointer');g.append('circle').attr('r',d=>nodeRadius(d)).attr('fill',d=>colors[d.type]||'#647b8b').attr('stroke','#fff').attr('stroke-width',2);g.append('text').attr('x',12).attr('y',4).attr('font-size',13).attr('fill','#f1f5fb').attr('paint-order','stroke').attr('stroke','#06142f').attr('stroke-width',4).attr('stroke-linejoin','round').text(d=>d.name.length>32?d.name.slice(0,30)+'…':d.name);g.append('title').text(d=>d.name+' · '+d.type);return g;});
   nodeSel.classed('expanded',d=>expanded.has(d.id)).on('click',(ev,d)=>{ev.stopPropagation();expandNode(d)}).call(d3.drag().on('start',(ev,d)=>{if(!ev.active)simulation.alphaTarget(.25).restart();d.fx=d.x;d.fy=d.y}).on('drag',(ev,d)=>{d.fx=ev.x;d.fy=ev.y}).on('end',(ev,d)=>{if(!ev.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}));
   simulation.nodes(shown).on('tick',()=>{linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);nodeSel.attr('transform',d=>'translate('+d.x+','+d.y+')')});
   simulation.force('link').links(links);simulation.alpha(.8).restart();
-  $('#graphCount').textContent=visible.size+' de '+all.length+' entidades visíveis · '+links.length+' relações exibidas';
+  $('#graphCount').textContent=visible.size+' de '+all.length+' entidades validadas com ligações · '+links.length+' relações exibidas · tamanho do nó proporcional ao número de ligações';
  }
  function expandNode(d){
   // Ao selecionar uma entidade, revela todo o componente conectado:
@@ -110,7 +116,7 @@ function drawGraph(){
  $('#graphZoomIn').onclick=()=>svg.transition().duration(250).call(zoom.scaleBy,1.25);
  $('#graphZoomOut').onclick=()=>svg.transition().duration(250).call(zoom.scaleBy,.8);
  $('#graphReset').onclick=()=>{visible=new Set(initial.map(n=>n.id));depth=new Map(initial.map(n=>[n.id,0]));expanded.clear();update();svg.transition().duration(300).call(zoom.transform,d3.zoomIdentity);$('#graphDetail').textContent='Clique em uma entidade para abrir suas conexões.'};
- $('#graphShowAll').onclick=()=>{all.forEach(n=>visible.add(n.id));update();$('#graphDetail').textContent='Todas as entidades estão visíveis. Clique em qualquer nó para consultar e expandir suas relações.'};
+ $('#graphShowAll').onclick=()=>{all.filter(n=>connectedIds.has(n.id)).forEach(n=>visible.add(n.id));update();$('#graphDetail').textContent='Todas as entidades validadas que possuem ligações estão visíveis.'};
  update();
 }
 $('#saveDescription').onclick=()=>{const title=$('#descTitle').value.trim();if(!title)return alert('Informe o título da descrição.');state.descriptions=state.descriptions||[];state.descriptions.push({id:id(),entity_id:$('#descEntity').value,level:$('#descLevel').value,title,date:$('#descDate').value,scope:$('#descScope').value,history:$('#descHistory').value,notes:$('#descNotes').value,status:'Rascunho',created_at:new Date().toISOString()});['descTitle','descDate','descScope','descHistory','descNotes'].forEach(k=>$('#'+k).value='');saveState();render()};
