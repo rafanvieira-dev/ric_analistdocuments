@@ -1,0 +1,1 @@
+Adicione aqui os documentos de referência que o motor local deverá indexar: RiC-CM 1.0, Cartilha LABOGAD, Crosswalk ICA–RiC-CM e outras referências. Formatos aceitos: PDF com texto selecionável, DOCX, XLSX, TXT e MD. Os arquivos não são enviados para serviços externos. Não coloque aqui documentos pessoais ou sensíveis sem avaliar os riscos.
