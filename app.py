@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from email.parser import BytesParser
 from email.policy import default
 from docx import Document
+import fitz
 import json, re, uuid, os, threading
 from datetime import datetime
 from knowledge_base import status as knowledge_status, search as knowledge_search
@@ -81,10 +82,15 @@ class Handler(SimpleHTTPRequestHandler):
             part=next((p for p in msg.iter_parts() if p.get_filename()),None) if msg.is_multipart() else None
             if not part: return self.send_json({'error':'Envie um arquivo DOCX.'},400)
             filename=os.path.basename(part.get_filename() or 'documento.docx')
-            if not filename.lower().endswith('.docx'): return self.send_json({'error':'Formato aceito: DOCX.'},400)
-            tmp=DATA/(str(uuid.uuid4())+'.docx'); tmp.write_bytes(part.get_payload(decode=True) or b'')
+            ext=Path(filename).suffix.lower()
+            if ext not in ('.docx','.pdf'): return self.send_json({'error':'Formatos aceitos nesta etapa: DOCX e PDF com texto selecionável.'},400)
+            tmp=DATA/(str(uuid.uuid4())+ext); tmp.write_bytes(part.get_payload(decode=True) or b'')
             try:
-                blocks=read_docx(tmp); text='\n'.join(blocks)
+                if ext=='.docx': blocks=read_docx(tmp)
+                else:
+                    pdf=fitz.open(tmp); blocks=[f'[Página {i+1}] {page.get_text(\"text\").strip()}' for i,page in enumerate(pdf) if page.get_text(\"text\").strip()]
+                text='\n'.join(blocks)
+                if not text.strip(): return self.send_json({'error':'O PDF não contém texto selecionável. PDFs digitalizados exigem OCR, ainda não incluído.'},422)
             except Exception as exc:
                 tmp.unlink(missing_ok=True); return self.send_json({'error':'Não foi possível ler o DOCX: '+str(exc)},400)
             finally: tmp.unlink(missing_ok=True)
