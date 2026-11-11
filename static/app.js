@@ -55,14 +55,36 @@ function renderModules(){
  drawGraph();
 }
 function drawGraph(){
- const host=$('#graphView');if(!host)return;const nodes=state.entities,edges=state.relations;if(!nodes.length){host.innerHTML='<p class="empty">Importe documentos para identificar entidades e registrar relações.</p>';return}
- const width=Math.max(650,host.clientWidth||800),height=380,cx=width/2,cy=height/2,r=Math.min(width*.38,145),pos={};
- nodes.forEach((n,i)=>{const a=2*Math.PI*i/Math.max(nodes.length,1)-Math.PI/2;pos[n.id]={x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)}});
- let svg='<svg viewBox="0 0 '+width+' '+height+'" width="100%" role="img" aria-label="Grafo de entidades e relações">';
- edges.forEach(e=>{const a=pos[e.subject],b=pos[e.object];if(a&&b)svg+='<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="#91aab8" stroke-width="2"/>'});
- nodes.slice(0,100).forEach(n=>{const p=pos[n.id];svg+='<g><circle cx="'+p.x+'" cy="'+p.y+'" r="7" fill="#287e76"/><text x="'+(p.x+10)+'" y="'+(p.y-8)+'" font-size="11" fill="#263e52">'+esc(n.name.slice(0,28))+'</text></g>'});
- svg+='</svg>';host.innerHTML=svg+(nodes.length>100?'<p class="hint">Exibindo as primeiras 100 entidades.</p>':'');
+ const host=$('#graphView');if(!host)return;
+ const nodes=state.entities.slice(0,180).map(n=>({...n}));
+ const edges=state.relations.filter(e=>nodes.some(n=>n.id===e.subject)&&nodes.some(n=>n.id===e.object)).map(e=>({source:e.subject,target:e.object,predicate:e.predicate,status:e.status||'Pendente'}));
+ const colors={'Pessoa':'#3478a5','Organização':'#287e76','Grupo':'#568b67','Família':'#9874a8','Local':'#c28b43','Evento':'#b65e62','Data':'#82909e','Atividade':'#4e8caa','Thing':'#9b8650','Record':'#596b9c','Representação digital':'#708b91'};
+ if(!nodes.length){host.innerHTML='<div class="graph-empty"><b>Nenhuma entidade cadastrada</b><span>Importe uma fonte e valide as identificações para começar a construir a rede.</span></div>';return}
+ if(!window.d3){host.innerHTML='<div class="graph-empty">A biblioteca de visualização não carregou. Atualize a página.</div>';return}
+ const width=Math.max(600,host.clientWidth||900),height=Math.max(520,Math.min(760,Math.round(width*.62)));
+ host.innerHTML='<div class="graph-toolbar"><div class="graph-legend">'+Object.entries(colors).map(([k,v])=>'<span><i style="background:'+v+'"></i>'+esc(k)+'</span>').join('')+'</div><div class="graph-controls"><button class="mini" id="graphZoomIn">＋</button><button class="mini" id="graphZoomOut">−</button><button class="mini" id="graphReset">Centralizar</button></div></div><div class="graph-stage"><svg id="relationSvg" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Grafo interativo de relações"></svg></div><div class="graph-detail" id="graphDetail">Selecione um nó para consultar os dados da entidade. Arraste os nós para reorganizar o grafo.</div><p class="hint graph-count">'+nodes.length+' entidades exibidas · '+edges.length+' relações registradas'+(state.entities.length>180?' · limite visual de 180 entidades nesta visualização':'')+'</p>';
+ const svg=d3.select('#relationSvg'),root=svg.append('g');
+ const zoom=d3.zoom().scaleExtent([.25,3]).on('zoom',ev=>root.attr('transform',ev.transform));svg.call(zoom);
+ const simulation=d3.forceSimulation(nodes)
+  .force('link',d3.forceLink(edges).id(d=>d.id).distance(115).strength(.55))
+  .force('charge',d3.forceManyBody().strength(-380).distanceMax(520))
+  .force('center',d3.forceCenter(width/2,height/2))
+  .force('collide',d3.forceCollide().radius(d=>Math.max(15,Math.min(32,(d.name||'').length*1.25))).iterations(3))
+  .force('x',d3.forceX(width/2).strength(.035))
+  .force('y',d3.forceY(height/2).strength(.035));
+ const link=root.append('g').attr('class','graph-links').selectAll('line').data(edges).join('line').attr('stroke',d=>d.status==='Validada'?'#287e76':'#b7c5ce').attr('stroke-width',d=>d.status==='Validada'?2.5:1.5).attr('stroke-dasharray',d=>d.status==='Validada'?'':'5 4').attr('opacity',.8);
+ const node=root.append('g').selectAll('g').data(nodes).join('g').attr('class','graph-node').style('cursor','grab').call(d3.drag().on('start',(ev,d)=>{if(!ev.active)simulation.alphaTarget(.25).restart();d.fx=d.x;d.fy=d.y}).on('drag',(ev,d)=>{d.fx=ev.x;d.fy=ev.y}).on('end',(ev,d)=>{if(!ev.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}));
+ node.append('circle').attr('r',d=>d.type==='Organização'||d.type==='Grupo'?10:7).attr('fill',d=>colors[d.type]||'#647b8b').attr('stroke','#fff').attr('stroke-width',2);
+ node.append('text').text(d=>d.name.length>30?d.name.slice(0,28)+'…':d.name).attr('x',12).attr('y',4).attr('font-size',11).attr('fill','#2d4558').attr('paint-order','stroke').attr('stroke','#fff').attr('stroke-width',3).attr('stroke-linejoin','round');
+ node.on('click',(ev,d)=>{ev.stopPropagation();$('#graphDetail').innerHTML='<b>'+esc(d.name)+'</b><span>'+esc(d.type)+' · '+esc(d.status||'Pendente')+'</span><p>'+esc(d.source_excerpt||'Sem trecho de evidência registrado.')+'</p>'});
+ node.append('title').text(d=>d.name+' · '+d.type);
+ svg.on('click',()=>{$('#graphDetail').textContent='Selecione um nó para consultar os dados da entidade.'});
+ simulation.on('tick',()=>{link.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('transform',d=>'translate('+d.x+','+d.y+')')});
+ $('#graphZoomIn').onclick=()=>svg.transition().duration(250).call(zoom.scaleBy,1.25);
+ $('#graphZoomOut').onclick=()=>svg.transition().duration(250).call(zoom.scaleBy,.8);
+ $('#graphReset').onclick=()=>{simulation.alpha(.6).restart();svg.transition().duration(350).call(zoom.transform,d3.zoomIdentity)};
 }
+
 $('#saveDescription').onclick=()=>{const title=$('#descTitle').value.trim();if(!title)return alert('Informe o título da descrição.');state.descriptions=state.descriptions||[];state.descriptions.push({id:id(),entity_id:$('#descEntity').value,level:$('#descLevel').value,title,date:$('#descDate').value,scope:$('#descScope').value,history:$('#descHistory').value,notes:$('#descNotes').value,status:'Rascunho',created_at:new Date().toISOString()});['descTitle','descDate','descScope','descHistory','descNotes'].forEach(k=>$('#'+k).value='');saveState();render()};
 $('#addNote').onclick=()=>{const text=$('#noteText').value.trim();if(!text)return alert('Escreva a nota.');state.notes.push({id:id(),source_id:$('#noteSource').value,text,status:'Aberta',created_at:new Date().toISOString()});$('#noteText').value='';saveState();render()};
 
