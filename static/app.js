@@ -84,13 +84,28 @@ function drawGraph(){
   $('#graphCount').textContent=visible.size+' de '+all.length+' entidades visíveis · '+links.length+' relações exibidas';
  }
  function expandNode(d){
-  const next=relations.filter(r=>r.subject===d.id||r.object===d.id);
-  const neighbors=new Set();next.forEach(r=>neighbors.add(r.subject===d.id?r.object:r.subject));
-  const fresh=[...neighbors].filter(id=>!visible.has(id));
-  fresh.forEach(id=>{visible.add(id);depth.set(id,(depth.get(d.id)||0)+1)});
-  expanded.add(d.id);update();
-  const related=next.map(r=>{const other=byId.get(r.subject===d.id?r.object:r.subject);return (r.predicate||'relacionado a')+' → '+(other?.name||'entidade')}).join(' · ');
-  $('#graphDetail').innerHTML='<b>'+esc(d.name)+'</b><span>'+esc(d.type)+' · '+esc(d.status||'Pendente')+'</span><p>'+esc(d.source_excerpt||'Sem trecho de evidência.')+'</p><p><b>Conexões diretas:</b> '+(next.length?esc(related):'Nenhuma relação cadastrada para esta entidade.')+'</p><small>'+(fresh.length?fresh.length+' nova(s) entidade(s) aberta(s).':'Todas as conexões diretas já estão visíveis.')+' Clique em uma das novas entidades para continuar expandindo a rede.</small>';
+  // Ao selecionar uma entidade, revela todo o componente conectado:
+  // relações diretas e também as conexões alcançáveis por outras entidades.
+  const queue=[d.id],visited=new Set([d.id]),componentEdges=[];
+  while(queue.length){
+   const current=queue.shift();
+   relations.forEach(r=>{
+    if(r.subject!==current&&r.object!==current)return;
+    if(!componentEdges.includes(r))componentEdges.push(r);
+    const other=r.subject===current?r.object:r.subject;
+    if(!visited.has(other)){visited.add(other);queue.push(other)}
+   });
+  }
+  const fresh=[...visited].filter(id=>!visible.has(id));
+  visited.forEach(id=>visible.add(id));
+  visited.forEach(id=>expanded.add(id));
+  update();
+  const direct=relations.filter(r=>r.subject===d.id||r.object===d.id);
+  const lines=componentEdges.map(r=>{
+   const a=byId.get(r.subject),b=byId.get(r.object);
+   return '<li><b>'+esc(a?.name||'Entidade')+'</b> — '+esc(r.predicate||'relacionado a')+' — <b>'+esc(b?.name||'Entidade')+'</b> <small>('+esc(r.status||'Pendente')+')</small></li>';
+  }).join('');
+  $('#graphDetail').innerHTML='<b>'+esc(d.name)+'</b><span>'+esc(d.type)+' · '+esc(d.status||'Pendente')+'</span><p>'+esc(d.source_excerpt||'Sem trecho de evidência registrado.')+'</p><p><b>Conexões diretas:</b> '+direct.length+' · <b>Entidades no conjunto conectado:</b> '+visited.size+' · <b>Relações encontradas:</b> '+componentEdges.length+'</p>'+(componentEdges.length?'<details open><summary>Ver todas as correlações encontradas</summary><ul class="graph-rel-list">'+lines+'</ul></details>':'<small>Esta entidade ainda não possui relações cadastradas. Registre relações na área de relações para que apareçam no grafo.</small>')+'<small>'+fresh.length+' nova(s) entidade(s) revelada(s), incluindo conexões indiretas.</small>';
  }
  $('#graphZoomIn').onclick=()=>svg.transition().duration(250).call(zoom.scaleBy,1.25);
  $('#graphZoomOut').onclick=()=>svg.transition().duration(250).call(zoom.scaleBy,.8);
