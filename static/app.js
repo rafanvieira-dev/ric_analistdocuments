@@ -253,3 +253,16 @@ if(resetButton)resetButton.onclick=()=>{
  alert('Aplicativo zerado. A página será recarregada.');
  location.reload();
 };
+
+/* Instalação como aplicativo (PWA) e cache básico da interface */
+let pendingInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',ev=>{ev.preventDefault();pendingInstallPrompt=ev;const b=document.querySelector('#installApp');if(b)b.hidden=false});
+window.addEventListener('appinstalled',()=>{pendingInstallPrompt=null;const b=document.querySelector('#installApp');if(b)b.hidden=true});
+const installButton=document.querySelector('#installApp');
+if(installButton)installButton.addEventListener('click',async()=>{
+ if(pendingInstallPrompt){pendingInstallPrompt.prompt();await pendingInstallPrompt.userChoice;pendingInstallPrompt=null;installButton.hidden=true;return}
+ alert('Para instalar: no Android, abra o menu ⋮ do navegador e escolha “Instalar app” ou “Adicionar à tela inicial”. No iPhone, toque em Compartilhar e depois “Adicionar à Tela de Início”.');
+});
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(err=>console.warn('Service worker não registrado:',err)));
+}
