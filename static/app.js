@@ -123,7 +123,8 @@ render();
  <label class="wide">Relações RiC / entidades relacionadas<input id="ricRelations" placeholder="Ex.: has creator, associated with, has location"></label>
  <label class="wide">Observações, fonte e incertezas<textarea id="ricNotes" rows="2" placeholder="Fonte da informação, lacunas e divergências"></textarea></label>
  <button class="btn primary" id="saveRic">Salvar descrição RiC-CM</button></div></div>
- <div class="panel"><h3>Descrições RiC-CM registradas</h3><div id="ricList" class="empty">Nenhuma descrição cadastrada.</div></div>
+ <div class="panel" id="ricAutoPanel"><div class="panelhead"><div><h3>Tabela de descrição gerada automaticamente</h3><p>O sistema propõe valores a partir das fontes e entidades cadastradas. Clique nas células para editar antes de exportar.</p></div><div class="rowactions"><button class="btn ghost" id="refreshRicTable">Atualizar tabela</button><button class="btn primary" id="exportRicPdf">Exportar tabela em PDF</button></div></div><div class="table-scroll"><table class="description-table" id="ricDescriptionTable"><thead><tr><th>Elemento / atributo</th><th>Valor proposto</th><th>Fonte / evidência</th><th>Situação</th></tr></thead><tbody id="ricTableBody"><tr><td colspan="4">Importe uma fonte para gerar a tabela.</td></tr></tbody></table></div><p class="hint">Os valores automáticos são sugestões. Revise especialmente identidade, datas, autoria, relações e contexto antes de considerar a descrição concluída.</p></div>
+ <div class="panel"><h3>Descrições RiC-CM registradas</h3><div id="ricList" class="empty">Nenhuma ficha cadastrada.</div></div>
  <div class="panel"><h3>Correspondências contempladas nesta interface</h3><div id="crosswalkInfo" class="crosswalk-grid"></div><p class="hint">A matriz integral contém oito abas e centenas de linhas. Esta interface inicia pelos campos centrais de descrição e pelos tipos de entidade RiC-CM; não substitui a consulta linha a linha à planilha original.</p></div>`);
  // Atalhos de navegação e compatibilidade com as páginas antigas.
  const oldPage=page;
@@ -133,6 +134,26 @@ render();
  $('#openEntityList').onclick=()=>window.page('entities');
  // Sincroniza os selects das fichas com o cadastro único de entidades.
  function fillEntitySelects(){['labEntity','ricEntity'].forEach(id=>{const el=$('#'+id),v=el.value;el.innerHTML='<option value="">Não vinculada</option>'+state.entities.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');el.value=v})}
+ function buildRicRows(){
+  const body=$('#ricTableBody');if(!body)return;
+  const source=state.sources[state.sources.length-1];
+  const entities=state.entities.filter(e=>!source||e.source_id===source.id);
+  const rows=[];
+  const add=(element,value,evidence,status='Revisar')=>rows.push({element,value,evidence,status});
+  add('RiC-E — Tipo de entidade','Record Resource / recurso documental',source?.title||'Sem fonte vinculada','Proposta inicial');
+  add('RiC-A22 — Identifier',source?.id||'',source?.filename||'','Conferir identificador');
+  add('RiC-A28 — Name / Title',source?.title||'',source?.filename||'','Revisar título');
+  add('RiC-A — Scope and Content','',source?.filename||'','Preencher após leitura');
+  add('RiC-A — History','',source?.filename||'','Preencher após pesquisa');
+  add('RiC-R — has or is associated with date',entities.filter(e=>e.type==='Data').map(e=>e.name).join('; '),entities.filter(e=>e.type==='Data').map(e=>e.source_excerpt).join(' | '),'Validar natureza das datas');
+  const mapping={'Pessoa':'RiC-E08 Person','Organização':'RiC-E11 Corporate Body','Grupo':'RiC-E09 Group','Família':'RiC-E10 Family','Local':'RiC-E22 Place','Evento':'RiC-E14 Event','Atividade':'RiC-E15 Activity','Data':'RiC-E18 Date','Thing':'RiC-E01 Thing','Record':'RiC-E04 Record','Representação digital':'RiC-E06 Instantiation'};
+  entities.forEach(e=>add((mapping[e.type]||e.type)+' — Name',e.name,e.source_excerpt||source?.filename||'','Candidato — validar'));
+  if(!entities.length&&!source){body.innerHTML='<tr><td colspan="4">Importe uma fonte para gerar a tabela.</td></tr>';return}
+  body.innerHTML=rows.map((r,i)=>'<tr><th>'+esc(r.element)+'</th><td contenteditable="true" data-ric-cell="'+i+'" data-field="value">'+esc(r.value)+'</td><td contenteditable="true" data-ric-cell="'+i+'" data-field="evidence">'+esc(r.evidence)+'</td><td contenteditable="true" data-ric-cell="'+i+'" data-field="status">'+esc(r.status)+'</td></tr>').join('');
+  body.querySelectorAll('[contenteditable=true]').forEach(cell=>cell.addEventListener('input',()=>{cell.classList.add('edited');}));
+ }
+ $('#refreshRicTable').onclick=buildRicRows;
+ $('#exportRicPdf').onclick=()=>{const table=$('#ricDescriptionTable');if(!table)return;const title='Descrição arquivística — RiC-CM 1.0';const win=window.open('','_blank');if(!win){alert('Permita pop-ups para gerar o PDF.');return;}win.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+title+'</title><style>body{font:12px Arial,sans-serif;color:#263e52;margin:24px}h1{font-size:19px}p{font-size:11px;color:#586b7a}table{width:100%;border-collapse:collapse;margin-top:18px}th,td{border:1px solid #b9c7d0;padding:8px;text-align:left;vertical-align:top;white-space:pre-wrap}thead th{background:#eaf0f3}tbody th{width:23%;background:#f5f7f8}@page{size:A4 landscape;margin:14mm}@media print{body{margin:0}}</style></head><body><h1>'+title+'</h1><p>Gerado pelo Sistema RiC · minuta sujeita à revisão arquivística</p>'+table.outerHTML+'<p>Os valores e relações devem ser conferidos com as fontes originais. Campos vazios indicam informação não identificada ou ainda não descrita.</p><script>window.onload=()=>window.print()<\\/script></body></html>');win.document.close();};
  function renderWorkspace(){
   fillEntitySelects();
   $('#idSources').textContent=state.sources.length;$('#idEntities').textContent=state.entities.length;
@@ -142,6 +163,7 @@ render();
   $('#identifyResults').innerHTML=latest.length?latest.map(e=>'<div class="sourceitem"><div><b>'+esc(e.name)+'</b><small>'+esc(e.type)+' · '+esc(e.status)+' · '+esc(e.confidence)+'</small><p class="excerpt">'+esc(e.source_excerpt||'')+'</p></div><span class="tag">'+esc(e.status)+'</span></div>').join(''):'Nenhuma identificação disponível.';
   const labs=state.labDescriptions||[];
   $('#labList').innerHTML=labs.length?labs.map(d=>'<article class="sourceitem"><div><b>'+esc(d.title)+'</b><small>'+esc(d.type)+' · '+esc(d.status)+' · '+esc(d.date||'Data não informada')+'</small><p>'+esc(d.scope||'')+'</p><small>'+esc(d.evidence||'')+'</small></div><button class="mini" data-lab-delete="'+esc(d.id)+'">Excluir</button></article>').join(''):'Nenhuma descrição cadastrada.';
+  buildRicRows();
   const rics=state.ricDescriptions||[];
   $('#ricList').innerHTML=rics.length?rics.map(d=>'<article class="sourceitem"><div><b>'+esc(d.name)+'</b><small>'+esc(d.standard)+' · '+esc(d.entityType)+' · '+esc(d.status)+'</small><p>'+esc(d.scope||'')+'</p><small>'+esc(d.notes||'')+'</small></div><button class="mini" data-ric-delete="'+esc(d.id)+'">Excluir</button></article>').join(''):'Nenhuma descrição cadastrada.';
   $('#crosswalkInfo').innerHTML=['ISAD(G): identificação, contexto, conteúdo/estrutura, acesso/uso, materiais associados, notas e controle','ISAAR(CPF): identidade, descrição, relações e controle de autoridade de agentes','ISDF: identificação, contexto, relações e controle de funções/atividades','ISDIAH: identificação, contato, acesso, serviços e controle de instituições de custódia'].map(x=>'<div class="crosswalk-card">'+esc(x)+'</div>').join('');
