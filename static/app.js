@@ -483,8 +483,47 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  $('#publishPublicGraph')?.addEventListener('click',async()=>{if(!confirm('Publicar somente entidades e relações validadas? O conteúdo público atual será substituído. Nenhum texto de documento ou evidência interna será enviado.'))return;const b=$('#publishPublicGraph');b.disabled=true;b.textContent='Publicando…';try{await publish()}catch(e){$('#publishStatus').textContent='Falha na publicação: '+(e.code||e.message)}finally{b.disabled=false;b.textContent='Publicar grafo para visitantes'}});
  $('#publicSearch')?.addEventListener('input',renderPublic);visitorBtn?.addEventListener('click',visitorMode);
  $('#visitorLogout')?.addEventListener('click',async()=>{const f=window.RiCFirebase;if(f?.auth.currentUser){await f.authApi.signOut(f.auth)}else{lock('Acesso administrativo ou consulta pública');message('Você saiu da consulta pública. Escolha como deseja continuar.',false)}});
- async function start(f){if(started)return;started=true;lock('Verificando sessão');f.authApi.onAuthStateChanged(f.auth,async u=>{if(!u){lock('Acesso administrativo ou consulta pública');message('Entre com uma conta autorizada ou acesse a consulta pública.',false);return}try{const p=await f.dbApi.getDoc(f.dbApi.doc(f.db,'users',u.uid)),v=p.exists()?p.data():{};if(v.active!==true||!['admin','visitor'].includes(v.role)){await f.authApi.signOut(f.auth);lock('Acesso não autorizado');message('Esta conta não possui perfil ativo no Sistema RiC.');return}v.role==='admin'?admin():visitorMode()}catch(e){lock('Falha ao verificar autorização');message('Não foi possível confirmar suas permissões no Firestore. ('+(e.code||e.message)+')')}})}
- function connect(){if(window.RiCFirebase){start(window.RiCFirebase);return}if(window.RiCFirebaseError){lock('Firebase indisponível');message('Falha ao iniciar o Firebase. Recarregue a página.');return}window.addEventListener('ric-firebase-ready',()=>start(window.RiCFirebase),{once:true});window.addEventListener('ric-firebase-error',()=>{lock('Firebase indisponível');message('Não foi possível iniciar o Firebase.')},{once:true})}
- form.addEventListener('submit',async ev=>{ev.preventDefault();const f=window.RiCFirebase;if(!f){message('Aguarde a conexão com o Firebase.');return}login.disabled=true;login.textContent='Entrando…';message('Validando credenciais…',false);try{await f.authApi.signInWithEmailAndPassword(f.auth,email.value.trim(),password.value);password.value=''}catch(e){const m={'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-not-found':'Não existe uma conta com esse e-mail.','auth/wrong-password':'Senha incorreta.','auth/too-many-requests':'Muitas tentativas. Aguarde.','auth/invalid-email':'E-mail inválido.'};message(m[e.code]||('Não foi possível entrar: '+(e.code||e.message)))}finally{login.disabled=false;login.textContent='Entrar'}});
+ async function verifyAccess(u,f){
+  if(!u){lock('Acesso administrativo ou consulta pública');message('Entre com uma conta autorizada ou acesse a consulta pública.',false);return false}
+  lock('Verificando permissões');
+  try{
+   const ref=f.dbApi.doc(f.db,'users',u.uid);
+   const p=await Promise.race([f.dbApi.getDoc(ref),new Promise((_,reject)=>setTimeout(()=>reject(new Error('A consulta ao perfil demorou mais de 12 segundos. Verifique a conexão e as regras do Firestore.')),12000))]);
+   if(!p.exists()){message('Login realizado, mas o perfil users/'+u.uid+' não existe no Firestore. Crie ou confira esse documento.',true);return false}
+   const v=p.data()||{};
+   if(v.active!==true||!['admin','visitor'].includes(v.role)){
+    message('Login realizado, mas o perfil não está autorizado. Valores encontrados: role='+String(v.role)+', active='+String(v.active)+'.',true);return false
+   }
+   if(v.role==='admin')admin();else visitorMode();
+   return true
+  }catch(e){
+   lock('Falha ao verificar autorização');
+   message('O Firebase autenticou sua conta, mas não conseguiu ler users/'+u.uid+'. Erro: '+(e.code||e.message),true);
+   return false
+  }
+ }
+ async function start(f){
+  if(started)return;started=true;lock('Verificando sessão');
+  f.authApi.onAuthStateChanged(f.auth,u=>{verifyAccess(u,f)});
+ }
+ function connect(){
+  if(window.RiCFirebase){start(window.RiCFirebase);return}
+  if(window.RiCFirebaseError){lock('Firebase indisponível');message('Falha ao iniciar o Firebase. Recarregue a página.');return}
+  window.addEventListener('ric-firebase-ready',()=>start(window.RiCFirebase),{once:true});
+  window.addEventListener('ric-firebase-error',()=>{lock('Firebase indisponível');message('Não foi possível iniciar o Firebase.')},{once:true})
+ }
+ form.addEventListener('submit',async ev=>{
+  ev.preventDefault();const f=window.RiCFirebase;
+  if(!f){message('Aguarde a conexão com o Firebase.');return}
+  login.disabled=true;login.textContent='Entrando…';message('Validando credenciais…',false);
+  try{
+   const credential=await f.authApi.signInWithEmailAndPassword(f.auth,email.value.trim(),password.value);
+   password.value='';
+   await verifyAccess(credential.user||f.auth.currentUser,f);
+  }catch(e){
+   const m={'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-not-found':'Não existe uma conta com esse e-mail.','auth/wrong-password':'Senha incorreta.','auth/too-many-requests':'Muitas tentativas. Aguarde.','auth/invalid-email':'E-mail inválido.'};
+   message(m[e.code]||('Não foi possível entrar: '+(e.code||e.message)),true)
+  }finally{login.disabled=false;login.textContent='Entrar'}
+ });
  logout?.addEventListener('click',async()=>{if(window.RiCFirebase&&confirm('Deseja encerrar a sessão?'))await window.RiCFirebase.authApi.signOut(window.RiCFirebase.auth)});
 })();
