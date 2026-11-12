@@ -308,11 +308,11 @@ render();
  // OCR de imagens no navegador; não envia o arquivo a um servidor.
  const processModuleFile=async f=>{if(!f)return;const msg=$('#moduleMsg');msg.textContent='Processando arquivo localmente…';try{
   const ext=f.name.split('.').pop().toLowerCase();let blocks=[];
-  if(['jpg','jpeg','png','webp'].includes(ext)){if(!window.Tesseract)throw Error('Biblioteca OCR não carregou. Recarregue a página.');msg.textContent='Executando OCR em português. Imagens grandes podem levar alguns minutos…';const result=await Tesseract.recognize(f,'por',{logger:m=>{if(m.status==='recognizing text')msg.textContent='OCR: '+Math.round((m.progress||0)*100)+'%'}});const text=result.data.text.trim();if(!text)throw Error('O OCR não encontrou texto legível. A foto pode não conter texto ou estar desfocada.');blocks=text.split(/\\n+/).map(x=>x.trim()).filter(Boolean)}
+  if(['jpg','jpeg','png','webp'].includes(ext)){if(!window.Tesseract)throw Error('Biblioteca OCR não carregou. Recarregue a página.');msg.textContent='Executando OCR em português. Imagens grandes podem levar alguns minutos…';const result=await Tesseract.recognize(f,'por',{logger:m=>{if(m.status==='recognizing text')msg.textContent='OCR: '+Math.round((m.progress||0)*100)+'%'}});const text=result.data.text.trim();blocks=text?text.split(/\\n+/).map(x=>x.trim()).filter(Boolean):[]}
   else {blocks=await readFile(f)}
   const text=blocks.join('\\n'),sid=id(),entities=extractEntities(text,sid);
   const source={id:sid,filename:f.name,title:f.name.replace(/\\.[^.]+$/,''),kind:'Documento analisado',text,blocks,entity_count:entities.length,created_at:new Date().toLocaleString('pt-BR'),ocr:['jpg','jpeg','png','webp'].includes(ext)};
-  state.sources.push(source);state.entities.push(...entities);if(saveState()){msg.textContent='Concluído: '+blocks.length+' blocos e '+entities.length+' menções candidatas. Revise os resultados.';render();renderWorkspace()}
+  state.sources.push(source);state.entities.push(...entities);if(saveState()){msg.textContent=blocks.length?'Concluído: '+blocks.length+' blocos e '+entities.length+' menções candidatas. Revise os resultados.':'Imagem importada, mas o OCR não encontrou texto. Você ainda pode preparar um rascunho Omeka S com os dados do arquivo; a descrição visual deverá ser feita manualmente.';render();renderWorkspace()}
  }catch(err){msg.textContent=err.message}};
  $('#moduleFile').onchange=ev=>{processModuleFile(ev.target.files[0]);ev.target.value=''};
  $('#moduleCamera').onchange=ev=>{processModuleFile(ev.target.files[0]);ev.target.value=''};
