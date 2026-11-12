@@ -6,7 +6,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function loadState(){try{return {...emptyState(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){return emptyState()}}
 function saveState(){try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch(e){alert('O armazenamento do navegador está cheio. Exporte um backup e remova fontes antigas ou reduza o conteúdo.');return false}}
 function id(){return crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2)}
-function page(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id===id));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===id));$('#pagetitle').textContent=({overview:'Visão geral',sources:'Fontes e documentos',entities:'Entidades identificadas',relations:'Rede de relações',quality:'Controle de qualidade',identify:'Identificação de entidades',omeka:'Descrição Omeka S',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações'})[id]||'Visão geral'}
+function page(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id===id));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===id));$('#pagetitle').textContent=({overview:'Visão geral',sources:'Fontes e documentos',entities:'Entidades identificadas',relations:'Rede de relações',quality:'Controle de qualidade',identify:'Identificação de entidades',omeka:'Descrição Omeka S',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações','relation-manager':'Cadastro de relações'})[id]||'Visão geral'}
 document.querySelectorAll('.nav[data-page]').forEach(b=>b.onclick=()=>page(b.dataset.page));
 $('#goUpload').onclick=()=>$('#uploadPanel').scrollIntoView({behavior:'smooth'});
 $('#newUpload').onclick=()=>{page('overview');$('#uploadPanel').scrollIntoView({behavior:'smooth'})};
@@ -58,19 +58,16 @@ function renderModules(){
  drawGraph();
 }
 function renderGraphEditor(){
- const host=$('#graphView');if(!host)return;
- let editor=$('#graphRelationEditor');
- if(!editor){
-  editor=document.createElement('div');editor.id='graphRelationEditor';editor.className='panel graph-editor';
+ const editor=$('#graphRelationEditor');if(!editor)return;
+ if(!editor.dataset.initialized){
   editor.innerHTML='<h3>Registrar nova relação</h3><p class="hint">Selecione duas entidades já validadas. A relação ficará pendente até sua confirmação.</p><div class="relationform"><label>Entidade de origem<select id="graphSubject"></select></label><label>Tipo de relação<select id="graphPredicate"><option value="fundador de">fundador de</option><option value="dirigente de">dirigente de</option><option value="membro de">membro de</option><option value="localizado em">localizado em</option><option value="ocorreu em">ocorreu em</option><option value="associado a">associado a</option><option value="antecessor de">antecessor de</option><option value="sucessor de">sucessor de</option><option value="participou de">participou de</option><option value="produziu">produziu</option><option value="mencionado em">mencionado em</option></select></label><label>Entidade relacionada<select id="graphObject"></select></label><label class="wide">Evidência / justificativa<input id="graphEvidence" placeholder="Informe o trecho, página ou referência que sustenta a relação"></label><button class="btn primary" type="button" id="graphAddRelation">Registrar relação para revisão</button></div><div class="graph-relation-list" id="graphRelationList"></div>';
-  host.parentElement.insertBefore(editor,host);
   editor.querySelector('#graphAddRelation').addEventListener('click',()=>{
    const subject=$('#graphSubject').value,object=$('#graphObject').value,evidence=$('#graphEvidence').value.trim();
    if(!subject||!object)return alert('É necessário ter duas entidades validadas para registrar uma relação.');
    if(subject===object)return alert('Escolha duas entidades diferentes.');
    if(!evidence)return alert('Informe a evidência ou justificativa da relação.');
    state.relations.push({id:id(),subject,predicate:$('#graphPredicate').value,object,evidence,source_id:state.entities.find(e=>e.id===subject)?.source_id||'',status:'Pendente',created_at:new Date().toISOString()});
-   if(saveState()){ $('#graphEvidence').value='';render(); }
+   if(saveState()){$('#graphEvidence').value='';render()}
   });
   editor.addEventListener('click',ev=>{
    const button=ev.target.closest('[data-graph-action]');if(!button)return;
@@ -79,6 +76,7 @@ function renderGraphEditor(){
    if(button.dataset.graphAction==='delete'){if(!confirm('Excluir esta relação?'))return;state.relations=state.relations.filter(r=>r.id!==relation.id)}
    saveState();render();
   });
+  editor.dataset.initialized='true';
  }
  const valid=state.entities.filter(e=>e.status==='Validada');
  const opts='<option value="">Selecione uma entidade validada</option>'+valid.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');
@@ -160,7 +158,7 @@ $('#addNote').onclick=()=>{const text=$('#noteText').value.trim();if(!text)retur
 render();
 
 
-/* WORKSPACE 4 MODULOS — camada integrada sobre o modelo local existente */
+/* WORKSPACE 5 MODULOS — camada integrada sobre o modelo local existente */
 (function(){
  const navHost=document.querySelector('.sidebar .navlabel');
  const main=document.querySelector('main');
@@ -169,7 +167,8 @@ render();
   ['identify','01','Identificação','Quem, o quê, onde e quando'],
   ['omeka','02','Descrição Omeka S','Preparar itens e metadados'],
   ['riccm','03','Descrição RiC-CM 1.0','Campos e correspondências'],
-  ['graph','04','Grafo de relações','Rede de entidades']
+  ['relation-manager','04','Cadastro de relações','Registrar e validar conexões'],
+  ['graph','05','Grafo de relações','Visualização da rede']
  ];
  const nav=document.createElement('div');nav.className='module-nav';
  nav.innerHTML='<div class="navlabel">MÓDULOS PRINCIPAIS</div>'+modules.map(m=>'<button class="nav module-link" data-page="'+m[0]+'"><span class="module-num">'+m[1]+'</span><span>'+m[2]+'</span></button>').join('');
@@ -177,6 +176,7 @@ render();
  nav.querySelectorAll('.nav[data-page]').forEach(button=>button.addEventListener('click',()=>page(button.dataset.page)));
  const insertBefore=document.querySelector('#overview');
  const section=(id,html)=>{const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=html;insertBefore.insertAdjacentElement('beforebegin',s)};
+ section('relation-manager','<div class="toolbar"><div><h2>Cadastro de relações</h2><p>Registre vínculos entre entidades validadas e documente as evidências.</p></div></div><div id="graphRelationEditor" class="panel graph-editor"></div>');
  section('identify',`
  <div class="toolbar"><div><h2>Identificação de entidades</h2><p>Importe livros, documentos ou imagens. O sistema localiza menções e apresenta evidências para revisão.</p></div><button class="btn primary" id="identifyUpload">＋ Adicionar fonte</button></div>
  <div class="module-note"><b>Como interpretar os resultados</b><p>São candidatos encontrados no texto, não fatos confirmados. A identificação de pessoas, organizações e eventos exige validação contextual. PDF digitalizado e fotografia dependem de OCR.</p></div>
