@@ -6,7 +6,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function loadState(){try{return {...emptyState(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){return emptyState()}}
 function saveState(){try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch(e){alert('O armazenamento do navegador está cheio. Exporte um backup e remova fontes antigas ou reduza o conteúdo.');return false}}
 function id(){return crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2)}
-function page(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id===id));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===id));$('#pagetitle').textContent=({overview:'Visão geral',sources:'Fontes e documentos',entities:'Entidades identificadas',relations:'Rede de relações',quality:'Controle de qualidade'})[id]||'Visão geral'}
+function page(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id===id));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===id));$('#pagetitle').textContent=({overview:'Visão geral',sources:'Fontes e documentos',entities:'Entidades identificadas',relations:'Rede de relações',quality:'Controle de qualidade',identify:'Identificação de entidades',omeka:'Descrição Omeka S',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações'})[id]||'Visão geral'}
 document.querySelectorAll('.nav[data-page]').forEach(b=>b.onclick=()=>page(b.dataset.page));
 $('#goUpload').onclick=()=>$('#uploadPanel').scrollIntoView({behavior:'smooth'});
 $('#newUpload').onclick=()=>{page('overview');$('#uploadPanel').scrollIntoView({behavior:'smooth'})};
@@ -142,6 +142,7 @@ render();
  const nav=document.createElement('div');nav.className='module-nav';
  nav.innerHTML='<div class="navlabel">MÓDULOS PRINCIPAIS</div>'+modules.map(m=>'<button class="nav module-link" data-page="'+m[0]+'"><span class="module-num">'+m[1]+'</span><span>'+m[2]+'</span></button>').join('');
  navHost.insertAdjacentElement('afterend',nav);
+ nav.querySelectorAll('.nav[data-page]').forEach(button=>button.addEventListener('click',()=>page(button.dataset.page)));
  const insertBefore=document.querySelector('#overview');
  const section=(id,html)=>{const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=html;insertBefore.insertAdjacentElement('beforebegin',s)};
  section('identify',`
