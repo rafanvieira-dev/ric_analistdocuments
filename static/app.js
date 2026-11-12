@@ -472,13 +472,22 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   node.on('click',(ev,d)=>{const b=[...$('#publicEntityList').querySelectorAll('[data-public-id]')].find(x=>x.dataset.publicId===d.id);if(b)b.click()});
  }
  async function publish(){
-  const f=window.RiCFirebase,a=f.dbApi,d=f.db,es=state.entities.filter(e=>e.status==='Validada'&&e.id&&e.name),ids=new Set(es.map(e=>e.id)),rs=state.relations.filter(r=>r.status==='Validada'&&ids.has(r.subject)&&ids.has(r.object));
-  if(!es.length||!rs.length)throw Error('Valide entidades e pelo menos uma relação entre elas antes de publicar.');
+  const f=window.RiCFirebase,a=f.dbApi,d=f.db;
+  const validEntities=state.entities.filter(e=>e.status==='Validada'&&e.id&&e.name);
+  const validIds=new Set(validEntities.map(e=>e.id));
+  const rs=state.relations.filter(r=>r.status==='Validada'&&r.id&&r.subject&&r.object&&r.predicate&&validIds.has(r.subject)&&validIds.has(r.object));
+  const linkedIds=new Set(rs.flatMap(r=>[r.subject,r.object]));
+  const es=validEntities.filter(e=>linkedIds.has(e.id));
+  if(!rs.length||!es.length)throw Error('Não há relações validadas entre entidades validadas. Somente entidades que participam de pelo menos uma relação serão publicadas.');
   const oldE=await a.getDocs(a.collection(d,'public_entities')),oldR=await a.getDocs(a.collection(d,'public_relations'));
-  for(const x of oldE.docs)await a.deleteDoc(x.ref);for(const x of oldR.docs)await a.deleteDoc(x.ref);
-  for(const e of es)await a.setDoc(a.doc(d,'public_entities',e.id),{id:e.id,name:e.name,type:e.type||'Entidade',published_at:new Date().toISOString()});
+  for(const x of oldE.docs)await a.deleteDoc(x.ref);
+  for(const x of oldR.docs)await a.deleteDoc(x.ref);
+  const publishedAt=new Date().toISOString();
+  for(const e of es)await a.setDoc(a.doc(d,'public_entities',e.id),{id:e.id,name:e.name,type:e.type||'Entidade',published_at:publishedAt});
   for(const r of rs)await a.setDoc(a.doc(d,'public_relations',r.id),{id:r.id,subject:r.subject,predicate:r.predicate,object:r.object});
-  $('#publishStatus').textContent=es.length+' entidades e '+rs.length+' relações publicadas. Textos de fontes e evidências internas não foram enviados.';alert('Publicação concluída: '+es.length+' entidades e '+rs.length+' relações.');
+  const excluded=validEntities.length-es.length;
+  $('#publishStatus').textContent=es.length+' entidades relacionadas e '+rs.length+' relações publicadas. '+excluded+' entidade(s) sem relação foram excluídas. Textos de fontes e evidências internas não foram enviados.';
+  alert('Publicação concluída: '+es.length+' entidades conectadas e '+rs.length+' relações. '+excluded+' entidade(s) sem relação ficaram de fora.');
  }
  $('#publishPublicGraph')?.addEventListener('click',async()=>{if(!confirm('Publicar somente entidades e relações validadas? O conteúdo público atual será substituído. Nenhum texto de documento ou evidência interna será enviado.'))return;const b=$('#publishPublicGraph');b.disabled=true;b.textContent='Publicando…';try{await publish()}catch(e){$('#publishStatus').textContent='Falha na publicação: '+(e.code||e.message)}finally{b.disabled=false;b.textContent='Publicar grafo para visitantes'}});
  $('#publicSearch')?.addEventListener('input',renderPublic);visitorBtn?.addEventListener('click',async()=>{
