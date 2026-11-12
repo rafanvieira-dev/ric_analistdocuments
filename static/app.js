@@ -349,7 +349,7 @@ render();
   const text=blocks.join('\\n'),sid=id(),entities=extractEntities(text,sid);
   const source={id:sid,filename:f.name,title:f.name.replace(/\\.[^.]+$/,''),kind:'Documento analisado',text,blocks,entity_count:entities.length,created_at:new Date().toLocaleString('pt-BR'),ocr:['jpg','jpeg','png','webp','tif','tiff'].includes(ext),original_format:ext,derived_pdf:ext==='tif'||ext==='tiff'?'PDF pesquisável gerado':''};
   state.sources.push(source);state.entities.push(...entities);
-  if(saveState()){render();renderWorkspace();showProcess('Concluído · conversão e análise finalizadas',100,(tiffPages?tiffPages+' páginas convertidas para PDF. ':'')+blocks.length+' blocos de texto e '+entities.length+' menções candidatas encontradas.');msg.textContent=blocks.length?'Documento analisado. Confira as menções candidatas abaixo.':'Arquivo convertido, mas o OCR não encontrou texto legível. A imagem foi preservada no PDF; será necessária revisão manual.'}
+  if(saveState()){render();renderWorkspace();omFillSourceOptions();showProcess('Concluído · conversão e análise finalizadas',100,(tiffPages?tiffPages+' páginas convertidas para PDF. ':'')+blocks.length+' blocos de texto e '+entities.length+' menções candidatas encontradas.');msg.textContent=blocks.length?'Documento analisado. Confira as menções candidatas abaixo.':'Arquivo convertido, mas o OCR não encontrou texto legível. A imagem foi preservada no PDF; será necessária revisão manual.'}
  }catch(err){showProcess('Processamento interrompido',0,err.message);msg.textContent=err.message}};
 
  $('#moduleFile').onchange=ev=>{processModuleFile(ev.target.files[0]);ev.target.value=''};
