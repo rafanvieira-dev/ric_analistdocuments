@@ -441,90 +441,49 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 }
 
 
-/* Autenticação Firebase: a interface completa fica restrita ao administrador. */
-(function initRiCAdminAccess(){
- const gate=document.getElementById('authGate');
- const form=document.getElementById('adminLoginForm');
- const email=document.getElementById('adminEmail');
- const password=document.getElementById('adminPassword');
- const message=document.getElementById('authMessage');
- const status=document.getElementById('cloudStatus');
- const loginButton=document.getElementById('adminLoginButton');
- const logoutButton=document.getElementById('logoutAdmin');
- if(!gate||!form)return;
- let firebaseStarted=false;
- const showMessage=(text,isError=true)=>{message.textContent=text;message.classList.toggle('error',isError)};
- const lock=(text='Aguardando autenticação')=>{
-  document.body.classList.add('auth-required');
-  document.body.classList.remove('auth-ready');
-  gate.hidden=false;
-  if(status)status.textContent='● '+text;
-  if(logoutButton)logoutButton.hidden=true;
- };
- const unlock=()=>{
-  document.body.classList.remove('auth-required','auth-checking');
-  document.body.classList.add('auth-ready');
-  gate.hidden=true;
-  if(status)status.textContent='● ADMINISTRADOR CONECTADO · DADOS AINDA LOCAIS';
-  if(logoutButton)logoutButton.hidden=false;
- };
- async function start(firebase){
-  if(firebaseStarted)return;
-  firebaseStarted=true;
-  const {auth,db,authApi,dbApi}=firebase;
-  lock('Verificando sessão');
-  authApi.onAuthStateChanged(auth,async user=>{
-   if(!user){lock('Acesso administrativo');showMessage('Entre com a conta autorizada para acessar o sistema.',false);return}
-   try{
-    const profile=await dbApi.getDoc(dbApi.doc(db,'users',user.uid));
-    if(!profile.exists()||profile.data().role!=='admin'||profile.data().active!==true){
-     await authApi.signOut(auth);
-     lock('Acesso não autorizado');
-     showMessage('Esta conta não possui autorização administrativa ativa.');
-     return;
-    }
-    unlock();
-    showMessage('Acesso administrativo confirmado. Os dados continuam armazenados neste navegador; a sincronização em nuvem será configurada em uma próxima etapa.',false);
-   }catch(error){
-    lock('Falha ao verificar autorização');
-    showMessage('Não foi possível confirmar suas permissões no Firestore. Verifique as regras publicadas e tente novamente. ('+(error.code||error.message)+')');
-   }
-  },error=>{
-   lock('Erro de autenticação');
-   showMessage('Falha ao verificar a sessão: '+(error.code||error.message));
-  });
+/* Acesso separado: administrador e consulta pública. */
+(function(){
+ const gate=$('#authGate'),form=$('#adminLoginForm'),email=$('#adminEmail'),password=$('#adminPassword'),msg=$('#authMessage'),status=$('#cloudStatus'),login=$('#adminLoginButton'),logout=$('#logoutAdmin'),visitorBtn=$('#visitorAccessButton'),visitor=$('#visitorView');
+ let started=false,entities=[],relations=[];
+ const message=(s,error=true)=>{msg.textContent=s;msg.classList.toggle('error',error)};
+ const lock=s=>{document.body.classList.add('auth-required');document.body.classList.remove('auth-ready','visitor-ready');gate.hidden=false;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● '+s;if(logout)logout.hidden=true};
+ const admin=()=>{document.body.classList.remove('auth-required','auth-checking','visitor-ready');document.body.classList.add('auth-ready');gate.hidden=true;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● ADMINISTRADOR · DADOS AINDA LOCAIS';if(logout)logout.hidden=false;message('Acesso administrativo confirmado. Os dados de trabalho continuam neste navegador; somente o grafo publicado será enviado ao Firestore.',false)};
+ async function fetchPublic(){const f=window.RiCFirebase,a=f.dbApi,d=f.db;const [es,rs]=await Promise.all([a.getDocs(a.collection(d,'public_entities')),a.getDocs(a.collection(d,'public_relations'))]);entities=es.docs.map(x=>x.data()).filter(x=>x?.id&&x?.name);relations=rs.docs.map(x=>x.data()).filter(x=>x?.subject&&x?.object&&x?.predicate);renderPublic()}
+ function visitorMode(){document.body.classList.remove('auth-required','auth-checking','auth-ready');document.body.classList.add('visitor-ready');gate.hidden=true;$('.sidebar').hidden=true;$('main').hidden=true;visitor.hidden=false;if(status)status.textContent='● CONSULTA PÚBLICA';if(logout)logout.hidden=true;fetchPublic().catch(e=>$('#visitorStatus').textContent='Falha ao carregar acervo público: '+(e.code||e.message))}
+ function renderPublic(){
+  const q=($('#publicSearch').value||'').toLocaleLowerCase('pt-BR'),shown=entities.filter(e=>!q||(e.name+' '+(e.type||'')).toLocaleLowerCase('pt-BR').includes(q)),byId=new Map(entities.map(e=>[e.id,e])),rels=relations.filter(r=>byId.has(r.subject)&&byId.has(r.object));
+  $('#publicEntityCount').textContent=entities.length;$('#publicRelationCount').textContent=rels.length;
+  $('#publicEntityList').innerHTML=shown.length?shown.map(e=>'<button class="public-entity" data-public-id="'+esc(e.id)+'"><b>'+esc(e.name)+'</b><span>'+esc(e.type||'Entidade')+'</span></button>').join(''):'<p class="public-empty">Nenhuma entidade corresponde à pesquisa.</p>';
+  $('#publicRelationList').innerHTML=rels.length?rels.map(r=>'<article class="public-relation"><b>'+esc(byId.get(r.subject).name)+'</b><span>'+esc(r.predicate)+'</span><b>'+esc(byId.get(r.object).name)+'</b></article>').join(''):'<p class="public-empty">Ainda não há relações publicadas.</p>';
+  $('#publicEntityList').querySelectorAll('[data-public-id]').forEach(b=>b.onclick=()=>{const e=byId.get(b.dataset.publicId),connected=rels.filter(r=>r.subject===e.id||r.object===e.id);$('#publicDetail').innerHTML='<b>'+esc(e.name)+'</b><span>'+esc(e.type||'Entidade')+'</span><p>'+connected.length+' relação(ões) publicada(s).</p>'+(connected.length?'<ul>'+connected.map(r=>'<li>'+esc(byId.get(r.subject).name)+' — '+esc(r.predicate)+' — '+esc(byId.get(r.object).name)+'</li>').join('')+'</ul>':'')});
+  drawPublicGraph(entities,rels);$('#visitorStatus').textContent=entities.length?'Conteúdo publicado pelo administrador.':'O acervo público ainda não possui conteúdo. O administrador precisa validar e publicar entidades e relações.';
  }
- function connect(){
-  if(window.RiCFirebase){start(window.RiCFirebase);return}
-  if(window.RiCFirebaseError){lock('Firebase indisponível');showMessage('Falha ao iniciar o Firebase. Recarregue a página e confira o Console.');return}
-  window.addEventListener('ric-firebase-ready',()=>start(window.RiCFirebase),{once:true});
-  window.addEventListener('ric-firebase-error',()=>{lock('Firebase indisponível');showMessage('Não foi possível iniciar o Firebase. Confira a conexão e recarregue a página.')},{once:true});
+ function drawPublicGraph(es,rs){
+  const host=$('#publicGraph');if(!es.length||!rs.length){host.innerHTML='<div class="graph-empty"><b>Grafo ainda não disponível</b><span>Quando o administrador publicar entidades e relações validadas, a rede aparecerá aqui.</span></div>';return}
+  if(!window.d3){host.textContent='Visualização indisponível.';return}
+  const w=Math.max(320,host.clientWidth||900),h=Math.max(420,Math.min(680,Math.round(w*.58))),nodes=es.map(e=>({...e})),links=rs.map(r=>({source:r.subject,target:r.object,predicate:r.predicate}));
+  host.innerHTML='<svg id="publicGraphSvg" viewBox="0 0 '+w+' '+h+'"></svg>';const svg=d3.select('#publicGraphSvg'),root=svg.append('g'),zoom=d3.zoom().scaleExtent([.25,3]).on('zoom',e=>root.attr('transform',e.transform));svg.call(zoom);
+  const colors={Pessoa:'#65a9d0',Organização:'#59b99e',Grupo:'#8fc47b',Local:'#e6b56a',Evento:'#d98691',Data:'#a9b7c7'};
+  const lines=root.append('g').selectAll('line').data(links).join('line').attr('stroke','#8ba6bd').attr('stroke-opacity',.55).attr('stroke-width',1.8);
+  const node=root.append('g').selectAll('g').data(nodes).join('g').attr('class','public-node').style('cursor','pointer').call(d3.drag().on('start',(e,d)=>{if(!e.active)sim.alphaTarget(.2).restart();d.fx=d.x;d.fy=d.y}).on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y}).on('end',(e,d)=>{if(!e.active)sim.alphaTarget(0);d.fx=null;d.fy=null}));
+  node.append('circle').attr('r',9).attr('fill',d=>colors[d.type]||'#9aaec1').attr('stroke','#fff').attr('stroke-width',1.5);node.append('text').attr('x',12).attr('y',4).attr('fill','#f3f7fc').attr('font-size',12).attr('paint-order','stroke').attr('stroke','#071a32').attr('stroke-width',4).text(d=>d.name.length>30?d.name.slice(0,28)+'…':d.name);node.append('title').text(d=>d.name+' · '+(d.type||'Entidade'));
+  const sim=d3.forceSimulation(nodes).force('link',d3.forceLink(links).id(d=>d.id).distance(115)).force('charge',d3.forceManyBody().strength(-260)).force('center',d3.forceCenter(w/2,h/2)).force('collide',d3.forceCollide(30));
+  sim.on('tick',()=>{lines.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);node.attr('transform',d=>'translate('+d.x+','+d.y+')')});
+  node.on('click',(ev,d)=>{const b=[...$('#publicEntityList').querySelectorAll('[data-public-id]')].find(x=>x.dataset.publicId===d.id);if(b)b.click()});
  }
- form.addEventListener('submit',async ev=>{
-  ev.preventDefault();
-  const firebase=window.RiCFirebase;
-  if(!firebase){showMessage('A conexão com o Firebase ainda está iniciando. Aguarde alguns segundos.');return}
-  const userEmail=email.value.trim(),userPassword=password.value;
-  if(!userEmail||!userPassword){showMessage('Informe e-mail e senha.');return}
-  loginButton.disabled=true;loginButton.textContent='Entrando…';showMessage('Validando credenciais…',false);
-  try{
-   await firebase.authApi.signInWithEmailAndPassword(firebase.auth,userEmail,userPassword);
-   password.value='';
-  }catch(error){
-   const messages={
-    'auth/invalid-credential':'E-mail ou senha incorretos.',
-    'auth/user-not-found':'Não existe uma conta com esse e-mail.',
-    'auth/wrong-password':'Senha incorreta.',
-    'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.',
-    'auth/invalid-email':'O formato do e-mail é inválido.'
-   };
-   showMessage(messages[error.code]||('Não foi possível entrar: '+(error.code||error.message)));
-  }finally{loginButton.disabled=false;loginButton.textContent='Entrar como administrador'}
- });
- if(logoutButton)logoutButton.addEventListener('click',async()=>{
-  if(!window.RiCFirebase)return;
-  if(!confirm('Deseja encerrar a sessão administrativa?'))return;
-  try{await window.RiCFirebase.authApi.signOut(window.RiCFirebase.auth)}catch(error){alert('Não foi possível encerrar a sessão: '+(error.code||error.message))}
- });
- connect();
+ async function publish(){
+  const f=window.RiCFirebase,a=f.dbApi,d=f.db,es=state.entities.filter(e=>e.status==='Validada'&&e.id&&e.name),ids=new Set(es.map(e=>e.id)),rs=state.relations.filter(r=>r.status==='Validada'&&ids.has(r.subject)&&ids.has(r.object));
+  if(!es.length||!rs.length)throw Error('Valide entidades e pelo menos uma relação entre elas antes de publicar.');
+  const oldE=await a.getDocs(a.collection(d,'public_entities')),oldR=await a.getDocs(a.collection(d,'public_relations'));
+  for(const x of oldE.docs)await a.deleteDoc(x.ref);for(const x of oldR.docs)await a.deleteDoc(x.ref);
+  for(const e of es)await a.setDoc(a.doc(d,'public_entities',e.id),{id:e.id,name:e.name,type:e.type||'Entidade',published_at:new Date().toISOString()});
+  for(const r of rs)await a.setDoc(a.doc(d,'public_relations',r.id),{id:r.id,subject:r.subject,predicate:r.predicate,object:r.object});
+  $('#publishStatus').textContent=es.length+' entidades e '+rs.length+' relações publicadas. Textos de fontes e evidências internas não foram enviados.';alert('Publicação concluída: '+es.length+' entidades e '+rs.length+' relações.');
+ }
+ $('#publishPublicGraph')?.addEventListener('click',async()=>{if(!confirm('Publicar somente entidades e relações validadas? O conteúdo público atual será substituído. Nenhum texto de documento ou evidência interna será enviado.'))return;const b=$('#publishPublicGraph');b.disabled=true;b.textContent='Publicando…';try{await publish()}catch(e){$('#publishStatus').textContent='Falha na publicação: '+(e.code||e.message)}finally{b.disabled=false;b.textContent='Publicar grafo para visitantes'}});
+ $('#publicSearch')?.addEventListener('input',renderPublic);visitorBtn?.addEventListener('click',visitorMode);
+ async function start(f){if(started)return;started=true;lock('Verificando sessão');f.authApi.onAuthStateChanged(f.auth,async u=>{if(!u){lock('Acesso administrativo ou consulta pública');message('Entre com uma conta autorizada ou acesse a consulta pública.',false);return}try{const p=await f.dbApi.getDoc(f.dbApi.doc(f.db,'users',u.uid)),v=p.exists()?p.data():{};if(v.active!==true||!['admin','visitor'].includes(v.role)){await f.authApi.signOut(f.auth);lock('Acesso não autorizado');message('Esta conta não possui perfil ativo no Sistema RiC.');return}v.role==='admin'?admin():visitorMode()}catch(e){lock('Falha ao verificar autorização');message('Não foi possível confirmar suas permissões no Firestore. ('+(e.code||e.message)+')')}})}
+ function connect(){if(window.RiCFirebase){start(window.RiCFirebase);return}if(window.RiCFirebaseError){lock('Firebase indisponível');message('Falha ao iniciar o Firebase. Recarregue a página.');return}window.addEventListener('ric-firebase-ready',()=>start(window.RiCFirebase),{once:true});window.addEventListener('ric-firebase-error',()=>{lock('Firebase indisponível');message('Não foi possível iniciar o Firebase.')},{once:true})}
+ form.addEventListener('submit',async ev=>{ev.preventDefault();const f=window.RiCFirebase;if(!f){message('Aguarde a conexão com o Firebase.');return}login.disabled=true;login.textContent='Entrando…';message('Validando credenciais…',false);try{await f.authApi.signInWithEmailAndPassword(f.auth,email.value.trim(),password.value);password.value=''}catch(e){const m={'auth/invalid-credential':'E-mail ou senha incorretos.','auth/user-not-found':'Não existe uma conta com esse e-mail.','auth/wrong-password':'Senha incorreta.','auth/too-many-requests':'Muitas tentativas. Aguarde.','auth/invalid-email':'E-mail inválido.'};message(m[e.code]||('Não foi possível entrar: '+(e.code||e.message)))}finally{login.disabled=false;login.textContent='Entrar'}});
+ logout?.addEventListener('click',async()=>{if(window.RiCFirebase&&confirm('Deseja encerrar a sessão?'))await window.RiCFirebase.authApi.signOut(window.RiCFirebase.auth)});
 })();
