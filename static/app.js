@@ -10,6 +10,8 @@ function page(id){document.querySelectorAll('.page').forEach(x=>x.classList.togg
 document.querySelectorAll('.nav[data-page]').forEach(b=>b.onclick=()=>page(b.dataset.page));
 $('#goUpload').onclick=()=>$('#uploadPanel').scrollIntoView({behavior:'smooth'});
 $('#newUpload').onclick=()=>{page('overview');$('#uploadPanel').scrollIntoView({behavior:'smooth'})};
+function highlightText(value,names){const raw=String(value??'');const terms=[...new Set((names||[]).filter(Boolean).map(x=>String(x).trim()).filter(x=>x.length>1))].sort((a,b)=>b.length-a.length);let out='',pos=0;while(pos<raw.length){let best=-1,chosen='';for(const term of terms){const at=raw.toLowerCase().indexOf(term.toLowerCase(),pos);if(at>=0&&(best<0||at<best||(at===best&&term.length>chosen.length))){best=at;chosen=term}}if(best<0){out+=esc(raw.slice(pos));break}out+=esc(raw.slice(pos,best))+'<mark class="entity-highlight">'+esc(raw.slice(best,best+chosen.length))+'</mark>';pos=best+chosen.length}return out}
+function sourceHighlights(sourceId){return state.entities.filter(e=>e.source_id===sourceId&&e.name).map(e=>e.name)}
 const PEOPLE=['Rubens Barcelos','Mano Rubens','Ismael Silva','Bide','Brancura','Nilton Bastos','Edgar','Julinho','Donga','Sinhô','Caninha','Tia Ciata','Ricardo Cravo Albin','Nei Lopes','Nelson da Nóbrega Fernandes','Amaury Jório','Hiram de Araújo','José Ramos Tinhorão','Luiz Fernando Vianna','Cartola','Clementina de Jesus','Heitor dos Prazeres','Pixinguinha','João da Bahiana','Candeia','Sérgio Cabral','Mestre Ciça','Mestre Chuvisco'];
 const ORGS=['União Faz a Força','Deixa Falar','Escola de Samba Estácio de Sá','GRES Estácio de Sá','Unidos de São Carlos','União do Estácio de Sá','União das Cores','Portela','Império Serrano','Mangueira','Vizinha Faladeira','Funarte','Instituto Moreira Salles','IMS','UFRJ','Pallas','Prefeitura do Rio de Janeiro','Jornal do Brasil','Biblioteca Nacional','Arquivo Nacional','LIESA'];
 const PLACES=['Estácio','Pilares','Praça Onze','Largo do Estácio','Morro de São Carlos','Cidade Nova','Pequena África','Praça Quinze','Avenida Estácio de Sá','Rua do Estácio','Rua Machado Coelho','Beco D. Paulina','Oswaldo Cruz','Mangueira','Santo Cristo','Rio de Janeiro'];
@@ -45,7 +47,7 @@ function renderModules(){
  if($('#noteSource'))$('#noteSource').innerHTML='<option value="">Sem fonte específica</option>'+sourceOpts;
  if($('#descEntity'))$('#descEntity').innerHTML='<option value="">Sem entidade vinculada</option>'+state.entities.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');
  if($('#sourceList'))$('#sourceList').innerHTML=state.sources.length?state.sources.map(s=>'<article class="sourceitem"><div><b>'+esc(s.title)+'</b><small>'+esc(s.filename)+' · '+esc(s.created_at)+' · '+(s.blocks||[]).length+' blocos</small></div><div class="rowactions"><button class="mini" data-open-source="'+esc(s.id)+'">Ler documento</button><button class="mini" data-delete-source="'+esc(s.id)+'">Excluir</button></div></article>').join(''):'Nenhuma fonte importada ainda.';
- $('#sourceList')?.querySelectorAll('[data-open-source]').forEach(b=>b.onclick=()=>{const s=state.sources.find(x=>x.id===b.dataset.openSource);let w=window.open('','_blank');if(w){w.document.write('<meta charset="utf-8"><title>'+esc(s.title)+'</title><style>body{font:16px/1.7 system-ui;max-width:900px;margin:40px auto;padding:0 20px;color:#243c50}h1{font-size:24px}</style><h1>'+esc(s.title)+'</h1><p>'+esc(s.filename)+'</p><pre style="white-space:pre-wrap;font:inherit">'+esc(s.text|| (s.blocks||[]).join('\n'))+'</pre>');w.document.close()}});
+ $('#sourceList')?.querySelectorAll('[data-open-source]').forEach(b=>b.onclick=()=>{const s=state.sources.find(x=>x.id===b.dataset.openSource);let w=window.open('','_blank');if(w){w.document.write('<meta charset="utf-8"><title>'+esc(s.title)+'</title><style>body{font:16px/1.7 system-ui;max-width:900px;margin:40px auto;padding:0 20px;color:#243c50}h1{font-size:24px}</style><h1>'+esc(s.title)+'</h1><p>'+esc(s.filename)+'</p><pre style="white-space:pre-wrap;font:inherit">'+highlightText(s.text|| (s.blocks||[]).join('\\n'),sourceHighlights(s.id))+'</pre><p style="font-size:12px;color:#607587">Grifos automáticos: menções localizadas durante a análise. Confira cada ocorrência na fonte.</p>');w.document.close()}});
  $('#sourceList')?.querySelectorAll('[data-delete-source]').forEach(b=>b.onclick=()=>{if(!confirm('Excluir esta fonte e manter as entidades já extraídas?'))return;state.sources=state.sources.filter(s=>s.id!==b.dataset.deleteSource);saveState();render()});
  $('#descriptionList').innerHTML=(state.descriptions||[]).length?state.descriptions.map(d=>'<article class="sourceitem"><div><b>'+esc(d.title)+'</b><small>'+esc(d.level)+' · '+esc(d.date||'Data não informada')+' · '+esc(d.status)+'</small><p>'+esc(d.scope||'')+'</p><small>'+esc(d.history||'')+' '+esc(d.notes||'')+'</small></div><button class="mini" data-del-desc="'+esc(d.id)+'">Excluir</button></article>').join(''):'Nenhuma ficha cadastrada.';
  $('#descriptionList').querySelectorAll('[data-del-desc]').forEach(b=>b.onclick=()=>{state.descriptions=state.descriptions.filter(d=>d.id!==b.dataset.delDesc);saveState();render()});
@@ -133,10 +135,9 @@ render();
  if(!navHost||!main)return;
  const modules=[
   ['identify','01','Identificação','Quem, o quê, onde e quando'],
-  ['labogad','02','Descrição LABOGAD','Modelos e fluxo da cartilha'],
+  ['omeka','02','Descrição Omeka S','Preparar itens e metadados'],
   ['riccm','03','Descrição RiC-CM 1.0','Campos e correspondências'],
-  ['graph','04','Grafo de relações','Rede de entidades'],
-  ['omeka','05','Descrição Omeka S','Preparar itens e metadados']
+  ['graph','04','Grafo de relações','Rede de entidades']
  ];
  const nav=document.createElement('div');nav.className='module-nav';
  nav.innerHTML='<div class="navlabel">MÓDULOS PRINCIPAIS</div>'+modules.map(m=>'<button class="nav module-link" data-page="'+m[0]+'"><span class="module-num">'+m[1]+'</span><span>'+m[2]+'</span></button>').join('');
@@ -201,7 +202,7 @@ render();
  <div class="panel"><h3>Rascunhos preparados</h3><div id="omDraftList" class="empty">Nenhum rascunho Omeka S.</div></div>`);
  // Atalhos de navegação e compatibilidade com as páginas antigas.
  const oldPage=page;
- window.page=function(id){oldPage(id);const titles={identify:'Identificação',labogad:'Descrição LABOGAD',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações',omeka:'Descrição Omeka S'};if(titles[id])document.querySelector('#pagetitle').textContent=titles[id]};
+ window.page=function(id){oldPage(id);const titles={identify:'Identificação',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações',omeka:'Descrição Omeka S'};if(titles[id])document.querySelector('#pagetitle').textContent=titles[id]};
  document.querySelectorAll('.module-link').forEach(b=>b.addEventListener('click',()=>window.page(b.dataset.page)));
  // Preparação de metadados para Omeka S: sugestões locais, editáveis e rastreáveis.
  const omBaseProps=[
@@ -295,7 +296,7 @@ render();
   $('#idValidated').textContent=state.entities.filter(e=>e.status==='Validada').length;
   $('#idPending').textContent=state.entities.filter(e=>e.status==='Pendente').length;
   const latest=state.entities.slice(-12).reverse();
-  $('#identifyResults').innerHTML=latest.length?latest.map(e=>'<div class="sourceitem"><div><b>'+esc(e.name)+'</b><small>'+esc(e.type)+' · '+esc(e.status)+' · '+esc(e.confidence)+'</small><p class="excerpt">'+esc(e.source_excerpt||'')+'</p></div><span class="tag">'+esc(e.status)+'</span></div>').join(''):'Nenhuma identificação disponível.';
+  $('#identifyResults').innerHTML=latest.length?latest.map(e=>'<div class="sourceitem"><div><b>'+esc(e.name)+'</b><small>'+esc(e.type)+' · '+esc(e.status)+' · '+esc(e.confidence)+'</small><p class="excerpt">'+highlightText(e.source_excerpt||'',[e.name])+'</p></div><span class="tag">'+esc(e.status)+'</span></div>').join(''):'Nenhuma identificação disponível.';
   const labs=state.labDescriptions||[];
   $('#labList').innerHTML=labs.length?labs.map(d=>'<article class="sourceitem"><div><b>'+esc(d.title)+'</b><small>'+esc(d.type)+' · '+esc(d.status)+' · '+esc(d.date||'Data não informada')+'</small><p>'+esc(d.scope||'')+'</p><small>'+esc(d.evidence||'')+'</small></div><button class="mini" data-lab-delete="'+esc(d.id)+'">Excluir</button></article>').join(''):'Nenhuma descrição cadastrada.';
   buildRicRows();
