@@ -264,6 +264,7 @@ render();
  function omRenderDrafts(){const list=state.omekaDrafts||[];$('#omDraftList').innerHTML=list.length?list.slice().reverse().map(d=>'<article class="sourceitem"><div><b>'+esc(d.title)+'</b><small>'+esc(d.resource_class||'Classe não definida')+' · '+esc(d.status)+' · '+new Date(d.created_at).toLocaleDateString('pt-BR')+'</small><p>'+d.properties.length+' propriedades · '+esc(d.source_filename)+'</p></div></article>').join(''):'Nenhum rascunho Omeka S.'}
  omFillSourceOptions();omRenderDrafts();
  $('#identifyUpload').onclick=()=>$('#moduleFile').click();
+ $('#homeCamera').onclick=()=>{window.page('identify');$('#moduleCamera').click()};
  $('#openEntityList').onclick=()=>window.page('entities');
  // Sincroniza os selects das fichas com o cadastro único de entidades.
  function fillEntitySelects(){['labEntity','ricEntity'].forEach(id=>{const el=$('#'+id),v=el.value;el.innerHTML='<option value="">Não vinculada</option>'+state.entities.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');el.value=v})}
