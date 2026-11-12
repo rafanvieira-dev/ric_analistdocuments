@@ -439,3 +439,92 @@ if(installButton)installButton.addEventListener('click',async()=>{
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(err=>console.warn('Service worker não registrado:',err)));
 }
+
+
+/* Autenticação Firebase: a interface completa fica restrita ao administrador. */
+(function initRiCAdminAccess(){
+ const gate=document.getElementById('authGate');
+ const form=document.getElementById('adminLoginForm');
+ const email=document.getElementById('adminEmail');
+ const password=document.getElementById('adminPassword');
+ const message=document.getElementById('authMessage');
+ const status=document.getElementById('cloudStatus');
+ const loginButton=document.getElementById('adminLoginButton');
+ const logoutButton=document.getElementById('logoutAdmin');
+ if(!gate||!form)return;
+ let firebaseStarted=false;
+ const showMessage=(text,isError=true)=>{message.textContent=text;message.classList.toggle('error',isError)};
+ const lock=(text='Aguardando autenticação')=>{
+  document.body.classList.add('auth-required');
+  document.body.classList.remove('auth-ready');
+  gate.hidden=false;
+  if(status)status.textContent='● '+text;
+  if(logoutButton)logoutButton.hidden=true;
+ };
+ const unlock=()=>{
+  document.body.classList.remove('auth-required');
+  document.body.classList.add('auth-ready');
+  gate.hidden=true;
+  if(status)status.textContent='● ADMINISTRADOR CONECTADO · DADOS AINDA LOCAIS';
+  if(logoutButton)logoutButton.hidden=false;
+ };
+ async function start(firebase){
+  if(firebaseStarted)return;
+  firebaseStarted=true;
+  const {auth,db,authApi,dbApi}=firebase;
+  lock('Verificando sessão');
+  authApi.onAuthStateChanged(auth,async user=>{
+   if(!user){lock('Acesso administrativo');showMessage('Entre com a conta autorizada para acessar o sistema.',false);return}
+   try{
+    const profile=await dbApi.getDoc(dbApi.doc(db,'users',user.uid));
+    if(!profile.exists()||profile.data().role!=='admin'||profile.data().active!==true){
+     await authApi.signOut(auth);
+     lock('Acesso não autorizado');
+     showMessage('Esta conta não possui autorização administrativa ativa.');
+     return;
+    }
+    unlock();
+    showMessage('Acesso administrativo confirmado. Os dados continuam armazenados neste navegador; a sincronização em nuvem será configurada em uma próxima etapa.',false);
+   }catch(error){
+    lock('Falha ao verificar autorização');
+    showMessage('Não foi possível confirmar suas permissões no Firestore. Verifique as regras publicadas e tente novamente. ('+(error.code||error.message)+')');
+   }
+  },error=>{
+   lock('Erro de autenticação');
+   showMessage('Falha ao verificar a sessão: '+(error.code||error.message));
+  });
+ }
+ function connect(){
+  if(window.RiCFirebase){start(window.RiCFirebase);return}
+  if(window.RiCFirebaseError){lock('Firebase indisponível');showMessage('Falha ao iniciar o Firebase. Recarregue a página e confira o Console.');return}
+  window.addEventListener('ric-firebase-ready',()=>start(window.RiCFirebase),{once:true});
+  window.addEventListener('ric-firebase-error',()=>{lock('Firebase indisponível');showMessage('Não foi possível iniciar o Firebase. Confira a conexão e recarregue a página.')},{once:true});
+ }
+ form.addEventListener('submit',async ev=>{
+  ev.preventDefault();
+  const firebase=window.RiCFirebase;
+  if(!firebase){showMessage('A conexão com o Firebase ainda está iniciando. Aguarde alguns segundos.');return}
+  const userEmail=email.value.trim(),userPassword=password.value;
+  if(!userEmail||!userPassword){showMessage('Informe e-mail e senha.');return}
+  loginButton.disabled=true;loginButton.textContent='Entrando…';showMessage('Validando credenciais…',false);
+  try{
+   await firebase.authApi.signInWithEmailAndPassword(firebase.auth,userEmail,userPassword);
+   password.value='';
+  }catch(error){
+   const messages={
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/user-not-found':'Não existe uma conta com esse e-mail.',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.',
+    'auth/invalid-email':'O formato do e-mail é inválido.'
+   };
+   showMessage(messages[error.code]||('Não foi possível entrar: '+(error.code||error.message)));
+  }finally{loginButton.disabled=false;loginButton.textContent='Entrar como administrador'}
+ });
+ if(logoutButton)logoutButton.addEventListener('click',async()=>{
+  if(!window.RiCFirebase)return;
+  if(!confirm('Deseja encerrar a sessão administrativa?'))return;
+  try{await window.RiCFirebase.authApi.signOut(window.RiCFirebase.auth)}catch(error){alert('Não foi possível encerrar a sessão: '+(error.code||error.message))}
+ });
+ connect();
+})();
