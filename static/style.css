@@ -151,3 +151,6 @@
 
 /* Progresso da conversão TIFF para PDF OCR */
 .process-panel{margin-top:12px;padding:13px;border:1px solid #dce8ec;border-radius:9px;background:#f7fafb}.process-top{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#31536a;font-size:11px}.process-top strong{font-size:15px;color:#24786e}.process-track{height:9px;background:#e3ebef;border-radius:20px;overflow:hidden;margin:10px 0 7px}.process-bar{height:100%;width:0;background:linear-gradient(90deg,#2b7182,#45a78d);border-radius:20px;transition:width .25s ease}.process-panel p{margin:0 0 9px;color:#718493;font-size:11px;line-height:1.45}.process-panel a{display:inline-block;text-decoration:none}
+
+/* Grifos automáticos de entidades encontradas nas fontes */
+.entity-highlight{background:#ffe58a;color:#503c08;border-radius:3px;padding:0 2px;box-shadow:0 0 0 1px #f3d36b}
