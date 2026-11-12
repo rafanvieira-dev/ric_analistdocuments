@@ -444,7 +444,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 /* Acesso separado: administrador e consulta pública. */
 (function(){
  const gate=$('#authGate'),form=$('#adminLoginForm'),email=$('#adminEmail'),password=$('#adminPassword'),msg=$('#authMessage'),status=$('#cloudStatus'),login=$('#adminLoginButton'),logout=$('#logoutAdmin'),visitorBtn=$('#visitorAccessButton'),visitor=$('#visitorView');
- let started=false,entities=[],relations=[];
+ let started=false,manualVisitor=false,entities=[],relations=[];
  const message=(s,error=true)=>{msg.textContent=s;msg.classList.toggle('error',error)};
  const lock=s=>{document.body.classList.add('auth-required');document.body.classList.remove('auth-ready','visitor-ready');gate.hidden=false;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● '+s;if(logout)logout.hidden=true};
  const admin=()=>{document.body.classList.remove('auth-required','auth-checking','visitor-ready');document.body.classList.add('auth-ready');gate.hidden=true;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● ADMINISTRADOR · DADOS AINDA LOCAIS';if(logout)logout.hidden=false;message('Acesso administrativo confirmado. Os dados de trabalho continuam neste navegador; somente o grafo publicado será enviado ao Firestore.',false)};
@@ -481,8 +481,16 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   $('#publishStatus').textContent=es.length+' entidades e '+rs.length+' relações publicadas. Textos de fontes e evidências internas não foram enviados.';alert('Publicação concluída: '+es.length+' entidades e '+rs.length+' relações.');
  }
  $('#publishPublicGraph')?.addEventListener('click',async()=>{if(!confirm('Publicar somente entidades e relações validadas? O conteúdo público atual será substituído. Nenhum texto de documento ou evidência interna será enviado.'))return;const b=$('#publishPublicGraph');b.disabled=true;b.textContent='Publicando…';try{await publish()}catch(e){$('#publishStatus').textContent='Falha na publicação: '+(e.code||e.message)}finally{b.disabled=false;b.textContent='Publicar grafo para visitantes'}});
- $('#publicSearch')?.addEventListener('input',renderPublic);visitorBtn?.addEventListener('click',visitorMode);
- $('#visitorLogout')?.addEventListener('click',async()=>{const f=window.RiCFirebase;if(f?.auth.currentUser){await f.authApi.signOut(f.auth)}else{lock('Acesso administrativo ou consulta pública');message('Você saiu da consulta pública. Escolha como deseja continuar.',false)}});
+ $('#publicSearch')?.addEventListener('input',renderPublic);visitorBtn?.addEventListener('click',async()=>{
+  const f=window.RiCFirebase;
+  manualVisitor=true;
+  try{if(f?.auth.currentUser)await f.authApi.signOut(f.auth);visitorMode()}
+  catch(e){manualVisitor=false;message('Não foi possível abrir a consulta pública com segurança: '+(e.code||e.message),true)}
+ });
+ $('#visitorLogout')?.addEventListener('click',()=>{
+  manualVisitor=false;lock('Acesso administrativo ou consulta pública');
+  message('Você saiu da consulta pública. Escolha como deseja continuar.',false)
+ });
  async function verifyAccess(u,f){
   if(!u){lock('Acesso administrativo ou consulta pública');message('Entre com uma conta autorizada ou acesse a consulta pública.',false);return false}
   lock('Verificando permissões');
@@ -504,7 +512,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  }
  async function start(f){
   if(started)return;started=true;lock('Verificando sessão');
-  f.authApi.onAuthStateChanged(f.auth,u=>{verifyAccess(u,f)});
+  f.authApi.onAuthStateChanged(f.auth,u=>{if(manualVisitor&&!u)return;verifyAccess(u,f)});
  }
  function connect(){
   if(window.RiCFirebase){start(window.RiCFirebase);return}
@@ -513,7 +521,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.addEventListener('ric-firebase-error',()=>{lock('Firebase indisponível');message('Não foi possível iniciar o Firebase.')},{once:true})
  }
  form.addEventListener('submit',async ev=>{
-  ev.preventDefault();const f=window.RiCFirebase;
+  ev.preventDefault();manualVisitor=false;const f=window.RiCFirebase;
   if(!f){message('Aguarde a conexão com o Firebase.');return}
   login.disabled=true;login.textContent='Entrando…';message('Validando credenciais…',false);
   try{
