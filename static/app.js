@@ -16,54 +16,14 @@ const PEOPLE=['Rubens Barcelos','Mano Rubens','Ismael Silva','Bide','Brancura','
 const ORGS=['União Faz a Força','Deixa Falar','Escola de Samba Estácio de Sá','GRES Estácio de Sá','Unidos de São Carlos','União do Estácio de Sá','União das Cores','Portela','Império Serrano','Mangueira','Vizinha Faladeira','Funarte','Instituto Moreira Salles','IMS','UFRJ','Pallas','Prefeitura do Rio de Janeiro','Jornal do Brasil','Biblioteca Nacional','Arquivo Nacional','LIESA'];
 const PLACES=['Estácio','Pilares','Praça Onze','Largo do Estácio','Morro de São Carlos','Cidade Nova','Pequena África','Praça Quinze','Avenida Estácio de Sá','Rua do Estácio','Rua Machado Coelho','Beco D. Paulina','Oswaldo Cruz','Mangueira','Santo Cristo','Rio de Janeiro'];
 const EVENTS=['primeiro desfile do Bloco Deixa Falar','criação do Bloco Deixa Falar','fundação da Deixa Falar','criação do Samba de Sambar','fim do Rancho Deixa Falar','fusão da Deixa Falar e União das Cores'];
-let localNerPipeline=null;
-async function getLocalNer(){
- if(localNerPipeline)return localNerPipeline;
- const mod=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2');
- localNerPipeline=await mod.pipeline('token-classification','tjruesch/xlm-roberta-base-ner-hrl-onnx',{dtype:'q8'});
- return localNerPipeline;
-}
-function addCandidate(out,text,sid,start,end,type,score,source){
- const name=text.slice(start,end).replace(/^[^\\p{L}\\p{N}]+|[^\\p{L}\\p{N}]+$/gu,'').trim();
- if(name.length<2||name.length>140)return;
- const excerpt=text.slice(Math.max(0,start-180),Math.min(text.length,end+200)).replace(/\\s+/g,' ');
- out.push({id:id(),name,type,source_id:sid,source_excerpt:excerpt,position:start,confidence:score>=.85?'Alta':score>=.65?'Média':'Baixa',status:'Pendente',evidence:source==='modelo'?'Candidato identificado por modelo multilíngue de reconhecimento de entidades; conferir contexto e identidade.':'Candidato identificado por padrão textual; conferir contexto e classificação.',variants:[]});
-}
-function heuristicCandidates(text,sid){
- const out=[];
- const dateRe=/(?<!\\d)(?:\\d{1,2}[/.\\-]\\d{1,2}[/.\\-]\\d{2,4}|\\d{4}|(?:dia|em)\\s+\\d{1,2}\\s+de\\s+[\\p{L}]+\\s+de\\s+\\d{4}|(?:século|sec\\.)\\s+[IVXLCDM]+)(?!\\d)/giu;
- let m;while((m=dateRe.exec(text)))addCandidate(out,text,sid,m.index,m.index+m[0].length,'Data',.82,'regra');
- const patterns=[
-  {type:'Evento',re:/\\b(?:[Ee]vento|[Cc]onferência|[Cc]ongresso|[Ee]ncontro|[Cc]onvenção|[Ff]estival|[Gg]uerra|[Rr]evolução|[Mm]anifestação|[Ee]leições|[Dd]esastre|[Cc]elebração)\\s+(?:de|do|da|dos|das)?\\s*[\\p{Lu}][\\p{L}0-9’'&.-]*(?:\\s+(?:de|do|da|dos|das|e|em|no|na)\\s+[\\p{Lu}][\\p{L}0-9’'&.-]*|\\s+[\\p{Lu}][\\p{L}0-9’'&.-]*){0,5}/gu},
-  {type:'Atividade',re:/\\b(?:[Pp]rojeto|[Pp]rograma|[Pp]esquisa|[Cc]ampanha|[Pp]rocessamento|[Cc]onstrução|[Pp]rodução|[Ee]xecução|[Gg]estão|[Ff]iscalização|[Ee]nsino|[Aa]tendimento|[Tt]reinamento)\\s+(?:de|do|da|dos|das)?\\s*[\\p{Lu}][\\p{L}0-9’'&.-]*(?:\\s+(?:de|do|da|dos|das|e|em|no|na)\\s+[\\p{Lu}][\\p{L}0-9’'&.-]*|\\s+[\\p{Lu}][\\p{L}0-9’'&.-]*){0,5}/gu},
-  {type:'Record',re:/\\b(?:[Aa]ta|[Rr]elatório|[Pp]arecer|[Pp]rocesso|[Cc]ontrato|[Ee]statuto|[Ll]ivro|[Cc]arta|[Oo]fício|[Mm]emorando|[Pp]lano|[Pp]rojeto|[Mm]anual|[Bb]oletim|[Nn]otícia|[Ee]dital|[Ll]ei|[Dd]ecreto|[Rr]esolução|[Pp]ortaria|[Cc]ertificado|[Dd]iploma|[Ff]otografia|[Ii]magem|[Mm]apa|[Pp]artitura|[Dd]isco)\\b(?:\\s+(?:n[ºo.]?\\s*)?[\\p{L}\\p{N}º.-]+){0,5}/gu},
-  {type:'Thing',re:/\\b(?:[Oo]bra|[Oo]bjeto|[Ee]quipamento|[Mm]áquina|[Vv]eículo|[Ii]nstrumento|[Mm]onumento|[Ee]dificação|[Pp]roduto|[Aa]rtefato|[Cc]oleção|[Aa]cervo|[Mm]aterial)\\s+(?:de|do|da|dos|das)?\\s*[\\p{Lu}][\\p{L}0-9’'&.-]*(?:\\s+[\\p{L}][\\p{L}0-9’'&.-]*){0,4}/gu}
- ];
- for(const p of patterns){while((m=p.re.exec(text)))addCandidate(out,text,sid,m.index,m.index+m[0].length,p.type,.55,'regra')}
- return out;
-}
-async function extractEntities(text,sid,onProgress){
- const found=[];
- const ner=await getLocalNer();
- const chunks=[];let cursor=0;
- while(cursor<text.length){let end=Math.min(text.length,cursor+1800);if(end<text.length){const cut=text.lastIndexOf(' ',end);if(cut>cursor+900)end=cut}chunks.push({text:text.slice(cursor,end),offset:cursor});cursor=end}
- for(let i=0;i<chunks.length;i++){
-  if(onProgress)onProgress('Reconhecendo entidades no trecho '+(i+1)+' de '+chunks.length+'…');
-  const chunk=chunks[i],results=await ner(chunk.text,{aggregation_strategy:'simple'});
-  for(const item of results){
-   const label=String(item.entity_group||item.entity||'').toUpperCase();
-   const type=label.includes('PER')?'Pessoa':label.includes('ORG')?'Organização':label.includes('LOC')?'Local':label.includes('DATE')?'Data':null;
-   if(type&&Number.isFinite(item.start)&&Number.isFinite(item.end))addCandidate(found,text,sid,chunk.offset+item.start,chunk.offset+item.end,type,Number(item.score)||.5,'modelo');
-  }
- }
- found.push(...heuristicCandidates(text,sid));
- const seen=new Set();
- return found.sort((a,b)=>a.position-b.position).filter(e=>{const k=e.type+'|'+e.name.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
-}
+function extractEntities(text,sid){let found=[],lex=[['Pessoa',PEOPLE],['Organização',ORGS],['Grupo',['Deixa Falar','União Faz a Força','União das Cores','Unidos de São Carlos']],['Local',PLACES],['Evento',EVENTS],['Atividade',['desfile','composição','gravação','ensaio','fundação','organização']],['Thing',['samba','partitura','fotografia','disco','gravação']],['Record',['ata','estatuto','programa','cartaz','fotografia','documento']]];
+ for(const [type,terms] of lex)for(const term of terms){const re=new RegExp('(?<![\\wÀ-ÿ])'+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\wÀ-ÿ])','ig');let m,n=0;while((m=re.exec(text))&&n++<5){found.push({id:id(),name:term,type,source_id:sid,source_excerpt:text.slice(Math.max(0,m.index-190),Math.min(text.length,m.index+term.length+220)).replace(/\s+/g,' '),position:m.index,confidence:type==='Evento'?'Baixa':'Média',status:'Pendente',evidence:'Menção literal encontrada; validar identidade, papel e contexto.',variants:[]})}}
+ const dr=/(?<!\d)(?:\d{1,2}\/\d{1,2}\/\d{4}|\d{4}|década de \d{4}|final da década de \d{4}|início da década de \d{4})(?!\d)/gi;let m;while((m=dr.exec(text)))found.push({id:id(),name:m[0],type:'Data',source_id:sid,source_excerpt:text.slice(Math.max(0,m.index-180),Math.min(text.length,m.index+m[0].length+200)).replace(/\s+/g,' '),position:m.index,confidence:'Média',status:'Pendente',evidence:'Expressão temporal localizada. Classificar a natureza da data.',variants:[]});
+ const seen=new Set();return found.sort((a,b)=>a.position-b.position).filter(e=>{let k=e.type+'|'+e.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true})}
 async function readFile(file){const ext=file.name.split('.').pop().toLowerCase();if(ext==='docx'){if(!window.mammoth)throw Error('Biblioteca DOCX não carregou. Atualize a página e tente novamente.');const r=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});return r.value.split(/\n+/).map(x=>x.trim()).filter(Boolean)}
  if(ext==='pdf'){if(!window.pdfjsLib)throw Error('Biblioteca PDF não carregou. Atualize a página e tente novamente.');pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let blocks=[];for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i),c=await p.getTextContent(),t=c.items.map(x=>x.str).join(' ').trim();if(t)blocks.push('[Página '+i+'] '+t)}if(!blocks.length)throw Error('Este PDF parece digitalizado ou não contém texto selecionável. OCR ainda não está disponível.');return blocks}
  throw Error('Formato não suportado. Envie DOCX ou PDF.') }
-$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#uploadMsg').textContent='Lendo documento no navegador…';try{const blocks=await readFile(f),text=blocks.join('\n'),sid=id();$('#uploadMsg').textContent='Preparando o modelo multilíngue no navegador. Na primeira utilização, o download pode ser grande…';const entities=await extractEntities(text,sid,msg=>$('#uploadMsg').textContent=msg);const source={id:sid,filename:f.name,title:f.name.replace(/\.[^.]+$/,''),kind:'Documento analisado',text,blocks,entity_count:entities.length,created_at:new Date().toLocaleString('pt-BR')};state.sources.push(source);state.entities.push(...entities);state.notes.push({id:id(),source_id:sid,text:'Revisar metadados de cada obra e vincular citações às páginas/edições disponíveis.',status:'Aberta'});if(saveState()){$('#uploadMsg').textContent='Importação concluída: '+blocks.length+' blocos e '+entities.length+' candidatos encontrados. Revise as sugestões antes de validar. Dados salvos neste navegador.';render();page('entities')}}catch(err){$('#uploadMsg').textContent=err.message}e.target.value=''};
+$('#file').onchange=async e=>{const f=e.target.files[0];if(!f)return;$('#uploadMsg').textContent='Lendo documento no navegador…';try{const blocks=await readFile(f),text=blocks.join('\n'),sid=id(),entities=extractEntities(text,sid);const source={id:sid,filename:f.name,title:f.name.replace(/\.[^.]+$/,''),kind:'Documento analisado',text,blocks,entity_count:entities.length,created_at:new Date().toLocaleString('pt-BR')};state.sources.push(source);state.entities.push(...entities);state.notes.push({id:id(),source_id:sid,text:'Revisar metadados de cada obra e vincular citações às páginas/edições disponíveis.',status:'Aberta'});if(saveState()){$('#uploadMsg').textContent='Importação concluída: '+blocks.length+' blocos e '+entities.length+' entidades candidatas. Dados salvos neste navegador.';render();page('entities')}}catch(err){$('#uploadMsg').textContent=err.message}e.target.value=''};
 function render(){$('#sSources').textContent=state.sources.length;$('#sEntities').textContent=state.entities.length;$('#sRelations').textContent=state.relations.length;$('#sPending').textContent=state.entities.filter(x=>x.status==='Pendente').length+state.relations.filter(x=>x.status==='Pendente').length;
  $('#sourceList').innerHTML=state.sources.length?state.sources.map(s=>'<div class="sourceitem"><div><b>'+esc(s.title)+'</b><small>'+esc(s.filename)+' · '+esc(s.created_at)+' · '+s.entity_count+' entidades candidatas</small></div><span class="tag">Fonte importada</span></div>').join(''):'Nenhuma fonte importada ainda.';
  const q=($('#searchEntity')?.value||'').toLowerCase(),t=$('#typeFilter')?.value||'',st=$('#statusFilter')?.value||'',es=state.entities.filter(e=>(!q||e.name.toLowerCase().includes(q))&&(!t||e.type===t)&&(!st||e.status===st));
