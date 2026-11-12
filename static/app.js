@@ -54,14 +54,46 @@ function renderModules(){
  $('#noteList').innerHTML=state.notes.length?state.notes.map(n=>'<article class="sourceitem"><div><b>'+esc(n.text)+'</b><small>'+esc(state.sources.find(s=>s.id===n.source_id)?.title||'Sem fonte')+' · '+esc(n.status||'Aberta')+'</small></div><div class="rowactions"><button class="mini" data-note-done="'+esc(n.id)+'">Concluir</button><button class="mini" data-note-del="'+esc(n.id)+'">Excluir</button></div></article>').join(''):'Nenhuma nota registrada.';
  $('#noteList').querySelectorAll('[data-note-done]').forEach(b=>b.onclick=()=>{const n=state.notes.find(x=>x.id===b.dataset.noteDone);n.status=n.status==='Concluída'?'Aberta':'Concluída';saveState();render()});
  $('#noteList').querySelectorAll('[data-note-del]').forEach(b=>b.onclick=()=>{state.notes=state.notes.filter(n=>n.id!==b.dataset.noteDel);saveState();render()});
+ renderGraphEditor();
  drawGraph();
+}
+function renderGraphEditor(){
+ const host=$('#graphView');if(!host)return;
+ let editor=$('#graphRelationEditor');
+ if(!editor){
+  editor=document.createElement('div');editor.id='graphRelationEditor';editor.className='panel graph-editor';
+  editor.innerHTML='<h3>Registrar nova relação</h3><p class="hint">Selecione duas entidades já validadas. A relação ficará pendente até sua confirmação.</p><div class="relationform"><label>Entidade de origem<select id="graphSubject"></select></label><label>Tipo de relação<select id="graphPredicate"><option value="fundador de">fundador de</option><option value="dirigente de">dirigente de</option><option value="membro de">membro de</option><option value="localizado em">localizado em</option><option value="ocorreu em">ocorreu em</option><option value="associado a">associado a</option><option value="antecessor de">antecessor de</option><option value="sucessor de">sucessor de</option><option value="participou de">participou de</option><option value="produziu">produziu</option><option value="mencionado em">mencionado em</option></select></label><label>Entidade relacionada<select id="graphObject"></select></label><label class="wide">Evidência / justificativa<input id="graphEvidence" placeholder="Informe o trecho, página ou referência que sustenta a relação"></label><button class="btn primary" type="button" id="graphAddRelation">Registrar relação para revisão</button></div><div class="graph-relation-list" id="graphRelationList"></div>';
+  host.parentElement.insertBefore(editor,host);
+  editor.querySelector('#graphAddRelation').addEventListener('click',()=>{
+   const subject=$('#graphSubject').value,object=$('#graphObject').value,evidence=$('#graphEvidence').value.trim();
+   if(!subject||!object)return alert('É necessário ter duas entidades validadas para registrar uma relação.');
+   if(subject===object)return alert('Escolha duas entidades diferentes.');
+   if(!evidence)return alert('Informe a evidência ou justificativa da relação.');
+   state.relations.push({id:id(),subject,predicate:$('#graphPredicate').value,object,evidence,source_id:state.entities.find(e=>e.id===subject)?.source_id||'',status:'Pendente',created_at:new Date().toISOString()});
+   if(saveState()){ $('#graphEvidence').value='';render(); }
+  });
+  editor.addEventListener('click',ev=>{
+   const button=ev.target.closest('[data-graph-action]');if(!button)return;
+   const relation=state.relations.find(r=>r.id===button.dataset.id);if(!relation)return;
+   if(button.dataset.graphAction==='validate')relation.status='Validada';
+   if(button.dataset.graphAction==='delete'){if(!confirm('Excluir esta relação?'))return;state.relations=state.relations.filter(r=>r.id!==relation.id)}
+   saveState();render();
+  });
+ }
+ const valid=state.entities.filter(e=>e.status==='Validada');
+ const opts='<option value="">Selecione uma entidade validada</option>'+valid.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');
+ const subject=$('#graphSubject'),object=$('#graphObject'),sv=subject.value,ov=object.value;
+ subject.innerHTML=opts;object.innerHTML=opts;subject.value=valid.some(e=>e.id===sv)?sv:'';object.value=valid.some(e=>e.id===ov)?ov:'';
+ const list=$('#graphRelationList');
+ list.innerHTML=state.relations.length?'<h3>Relações registradas</h3>'+state.relations.slice().reverse().map(r=>{const a=state.entities.find(e=>e.id===r.subject),b=state.entities.find(e=>e.id===r.object);return '<article class="sourceitem graph-relation-item"><div><b>'+esc(a?.name||'Entidade indisponível')+'</b> <span class="tag">'+esc(r.predicate)+'</span> <b>'+esc(b?.name||'Entidade indisponível')+'</b><small>'+esc(r.evidence||'Sem evidência')+'</small><small>Status: '+esc(r.status||'Pendente')+'</small></div><div class="rowactions">'+(r.status==='Validada'?'':'<button class="mini" data-graph-action="validate" data-id="'+esc(r.id)+'">Validar relação</button>')+'<button class="mini" data-graph-action="delete" data-id="'+esc(r.id)+'">Excluir</button></div></article>'}).join(''):'<p class="hint">Nenhuma relação cadastrada. Registre uma relação acima para começar.</p>';
+ if(!valid.length)list.insertAdjacentHTML('afterbegin','<div class="notice">Ainda não há entidades validadas. Vá ao módulo Identificação, valide pelo menos duas entidades e volte aqui para conectá-las.</div>');
 }
 function drawGraph(){
  const host=$('#graphView');if(!host)return;
  // Somente entidades validadas entram no grafo. Relações precisam ligar dois nós validados.
  const all=state.entities.filter(n=>n.status==='Validada').map(n=>({...n}));
  const byId=new Map(all.map(n=>[n.id,n]));
- const relations=state.relations.filter(e=>byId.has(e.subject)&&byId.has(e.object));
+ const relations=state.relations.filter(e=>e.status==='Validada'&&byId.has(e.subject)&&byId.has(e.object));
  const degree=new Map(all.map(n=>[n.id,0]));
  relations.forEach(r=>{degree.set(r.subject,(degree.get(r.subject)||0)+1);degree.set(r.object,(degree.get(r.object)||0)+1)});
  const maxDegree=Math.max(1,...degree.values());
