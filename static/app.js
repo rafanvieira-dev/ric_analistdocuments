@@ -135,7 +135,8 @@ render();
   ['identify','01','Identificação','Quem, o quê, onde e quando'],
   ['labogad','02','Descrição LABOGAD','Modelos e fluxo da cartilha'],
   ['riccm','03','Descrição RiC-CM 1.0','Campos e correspondências'],
-  ['graph','04','Grafo de relações','Rede de entidades']
+  ['graph','04','Grafo de relações','Rede de entidades'],
+  ['omeka','05','Descrição Omeka S','Preparar itens e metadados']
  ];
  const nav=document.createElement('div');nav.className='module-nav';
  nav.innerHTML='<div class="navlabel">MÓDULOS PRINCIPAIS</div>'+modules.map(m=>'<button class="nav module-link" data-page="'+m[0]+'"><span class="module-num">'+m[1]+'</span><span>'+m[2]+'</span></button>').join('');
@@ -182,10 +183,86 @@ render();
  <div class="panel" id="ricAutoPanel"><div class="panelhead"><div><h3>Tabela de descrição gerada automaticamente</h3><p>O sistema propõe valores a partir das fontes e entidades cadastradas. Clique nas células para editar antes de exportar.</p></div><div class="rowactions"><button class="btn ghost" id="refreshRicTable">Atualizar tabela</button><button class="btn primary" id="exportRicPdf">Exportar tabela em PDF</button></div></div><div class="table-scroll"><table class="description-table" id="ricDescriptionTable"><thead><tr><th>Elemento / atributo</th><th>Valor proposto</th><th>Fonte / evidência</th><th>Situação</th></tr></thead><tbody id="ricTableBody"><tr><td colspan="4">Importe uma fonte para gerar a tabela.</td></tr></tbody></table></div><p class="hint">Os valores automáticos são sugestões. Revise especialmente identidade, datas, autoria, relações e contexto antes de considerar a descrição concluída.</p></div>
  <div class="panel"><h3>Descrições RiC-CM registradas</h3><div id="ricList" class="empty">Nenhuma ficha cadastrada.</div></div>
  <div class="panel"><h3>Correspondências contempladas nesta interface</h3><div id="crosswalkInfo" class="crosswalk-grid"></div><p class="hint">A matriz integral contém oito abas e centenas de linhas. Esta interface inicia pelos campos centrais de descrição e pelos tipos de entidade RiC-CM; não substitui a consulta linha a linha à planilha original.</p></div>`);
+ section('omeka',`
+ <div class="toolbar"><div><h2>Descrição Omeka S</h2><p>Prepare itens e metadados seguindo a lógica de Values, Resource Template, Class, Item Sets e Media do Omeka S.</p></div></div>
+ <div class="module-note"><b>Como funciona</b><p>Selecione uma fonte já analisada. O sistema propõe campos Dublin Core e uma classe inicial com base no texto disponível. Cada valor é editável; sugestões não confirmam autoria, identidade, data ou relações. A análise visual avançada de imagens não está incluída nesta versão.</p></div>
+ <div class="panel"><h3>1. Fonte para descrição</h3><div class="relationform"><label class="wide">Documento ou fotografia analisada<select id="omSource"><option value="">Selecione uma fonte importada</option></select></label><button class="btn primary" id="omGenerate">Gerar campos sugeridos</button></div><p class="hint">Para imagens, as sugestões dependem do texto reconhecido pelo OCR e do nome do arquivo. Uma fotografia sem texto não será interpretada visualmente.</p></div>
+ <div class="panel"><div class="panelhead"><div><h3>2. Estrutura do item</h3><p>Campos administrativos e de organização do Omeka S.</p></div><span class="tag">Rascunho editável</span></div><div class="relationform">
+ <label>Título do item<input id="omTitle" placeholder="Título do recurso"></label>
+ <label>Modelo de recurso<input id="omTemplate" placeholder="Nome do modelo existente no Omeka S"></label>
+ <label>Classe<select id="omClass"><option value="">Não definida</option><option>foaf:Person · Person</option><option>foaf:Organization · Organization</option><option>dcterms:Location · Place</option><option> bibo:Event · Event</option><option>dctype:Text · Text</option><option>dctype:StillImage · Still Image</option><option>dctype:PhysicalObject · Physical Object</option></select></label>
+ <label>Conjunto de itens<input id="omItemSet" placeholder="Nome do Item Set no Omeka S"></label>
+ <label>Visibilidade<select id="omVisibility"><option value="public">Público</option><option value="private">Privado</option></select></label>
+ <label>Idioma<select id="omLanguage"><option value="pt-BR">Português (pt-BR)</option><option value="pt">Português (pt)</option><option value="und">Não identificado (und)</option></select></label>
+ </div></div>
+ <div class="panel"><div class="panelhead"><div><h3>3. Propriedades / valores</h3><p>Propriedades iniciais do Dublin Core. Você pode corrigir valores, apagar campos ou acrescentar propriedades.</p></div><button class="btn ghost" id="omAddField">＋ Adicionar propriedade</button></div><div id="omFields" class="om-fields"><p class="empty">Selecione uma fonte e gere os campos.</p></div></div>
+ <div class="panel"><h3>4. Mídias do item</h3><p>Anexe a imagem, PDF ou arquivo original para manter a relação entre o item intelectual e sua representação digital.</p><label class="drop" for="omMedia"><b>Selecionar arquivo de mídia</b><span>O arquivo fica apenas nesta sessão para referência; esta versão não o envia ao Omeka S.</span><input id="omMedia" type="file" accept="image/*,.pdf,.doc,.docx"></label><div id="omMediaName" class="message"></div></div>
+ <div class="panel"><div class="rowactions"><button class="btn primary" id="omSave">Salvar rascunho Omeka S</button><button class="btn ghost" id="omExport">Exportar ficha JSON</button></div><p class="hint">O rascunho fica no armazenamento local do navegador. Não cria o item diretamente no Omeka S; para isso seria necessária integração com a API e credenciais do Omeka.</p></div>
+ <div class="panel"><h3>Rascunhos preparados</h3><div id="omDraftList" class="empty">Nenhum rascunho Omeka S.</div></div>`);
  // Atalhos de navegação e compatibilidade com as páginas antigas.
  const oldPage=page;
- window.page=function(id){oldPage(id);const titles={identify:'Identificação',labogad:'Descrição LABOGAD',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações'};if(titles[id])document.querySelector('#pagetitle').textContent=titles[id]};
+ window.page=function(id){oldPage(id);const titles={identify:'Identificação',labogad:'Descrição LABOGAD',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações',omeka:'Descrição Omeka S'};if(titles[id])document.querySelector('#pagetitle').textContent=titles[id]};
  document.querySelectorAll('.module-link').forEach(b=>b.addEventListener('click',()=>window.page(b.dataset.page)));
+ // Preparação de metadados para Omeka S: sugestões locais, editáveis e rastreáveis.
+ const omBaseProps=[
+  ['dcterms:title','Título'],['dcterms:description','Descrição'],['dcterms:creator','Criador'],['dcterms:contributor','Colaborador'],['dcterms:date','Data'],['dcterms:subject','Assunto'],['dcterms:spatial','Cobertura espacial'],['dcterms:type','Tipo'],['dcterms:identifier','Identificador'],['dcterms:publisher','Editor / entidade publicadora'],['dcterms:source','Fonte'],['dcterms:language','Idioma'],['dcterms:format','Formato'],['dcterms:rights','Direitos'],['dcterms:relation','Relação']
+ ];
+ let omCurrentSource=null, omMediaFile=null;
+ const omField=(prop,label,value='',origin='Não identificado')=>({id:id(),prop,label,value,origin});
+ function omRenderFields(fields){
+  $('#omFields').innerHTML=fields.map((f,i)=>'<div class="om-field" data-om-field="'+esc(f.id)+'"><div class="om-field-head"><b>'+esc(f.label)+'</b><code>'+esc(f.prop)+'</code><button class="mini" data-om-remove="'+esc(f.id)+'">Remover</button></div><label>Valor<textarea data-om-value="'+esc(f.id)+'" rows="2">'+esc(f.value)+'</textarea></label><small>Origem: '+esc(f.origin)+'</small></div>').join('')||'<p class="empty">Nenhuma propriedade adicionada.</p>';
+  $('#omFields').querySelectorAll('[data-om-value]').forEach(el=>el.oninput=()=>{const f=(state.omekaCurrentFields||[]).find(x=>x.id===el.dataset.omValue);if(f)f.value=el.value});
+  $('#omFields').querySelectorAll('[data-om-remove]').forEach(el=>el.onclick=()=>{state.omekaCurrentFields=(state.omekaCurrentFields||[]).filter(x=>x.id!==el.dataset.omRemove);omRenderFields(state.omekaCurrentFields)});
+ }
+ function omFillSourceOptions(){
+  const el=$('#omSource');if(!el)return;const selected=el.value;
+  el.innerHTML='<option value="">Selecione uma fonte importada</option>'+state.sources.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.title||s.filename)+'</option>').join('');
+  if(state.sources.some(s=>s.id===selected))el.value=selected;
+ }
+ function omSuggest(){
+  const sid=$('#omSource').value,src=state.sources.find(s=>s.id===sid);if(!src)return alert('Selecione uma fonte analisada.');
+  omCurrentSource=src;const text=src.text||'',filename=src.filename||src.title||'';
+  $('#omTitle').value=src.title||filename.replace(/\.[^.]+$/,'');
+  $('#omTemplate').value='';
+  const isImage=/\.(jpe?g|png|webp)$/i.test(filename);
+  let cls='';if(isImage)cls='dctype:StillImage · Still Image';else if(/\.(pdf|docx?|txt)$/i.test(filename))cls='dctype:Text · Text';
+  $('#omClass').value=cls;
+  const dateMatches=[...text.matchAll(/\b(?:18|19|20)\d{2}(?:[-/]\d{1,2}(?:[-/]\d{1,2})?)?\b/g)].map(m=>m[0]);
+  const uniqueDates=[...new Set(dateMatches)].slice(0,8);
+  const terms=(state.entities||[]).filter(e=>e.source_id===sid).map(e=>e.name);
+  const subject=[...new Set(terms)].slice(0,12);
+  const fields=[
+   omField('dcterms:title','Título',src.title||filename,'Nome do arquivo/fonte; revisar'),
+   omField('dcterms:description','Descrição',text.slice(0,1200),'Trecho inicial do texto extraído; resumir e revisar'),
+   omField('dcterms:date','Data',uniqueDates.join('; '),'Datas encontradas no texto; contexto não confirmado'),
+   omField('dcterms:subject','Assunto',subject.join('; '),'Menções candidatas extraídas; não são assuntos confirmados'),
+   omField('dcterms:language','Idioma',text?'pt':'','Idioma presumido pelo contexto de OCR/texto; conferir'),
+   omField('dcterms:format','Formato',filename.split('.').pop()?.toUpperCase()||'','Extensão do arquivo'),
+   omField('dcterms:identifier','','','Não identificado'),
+   omField('dcterms:creator','Criador','','Não identificado; não inferir autoria'),
+   omField('dcterms:contributor','Colaborador','','Não identificado'),
+   omField('dcterms:spatial','Cobertura espacial','','Não identificado; validar local em fonte'),
+   omField('dcterms:type','Tipo',isImage?'Imagem':'Texto/documento','Sugestão pela extensão do arquivo'),
+   omField('dcterms:publisher','Editor / entidade publicadora','','Não identificado'),
+   omField('dcterms:rights','Direitos','','Não identificado; verificar titularidade e licença'),
+   omField('dcterms:source','Fonte',filename,'Arquivo analisado'),
+   omField('dcterms:relation','Relação','','Adicionar somente após confirmar vínculo com outro item')
+  ];
+  state.omSourceId=sid;state.omekaCurrentFields=fields;omRenderFields(fields);
+  $('#omMediaName').textContent='Fonte analisada: '+filename+(isImage?' · imagem sem interpretação visual; somente OCR/texto disponível.':'');
+ }
+ $('#omGenerate').onclick=omSuggest;
+ $('#omSource').onchange=()=>{omCurrentSource=null};
+ $('#omAddField').onclick=()=>{const prop=prompt('Informe a propriedade (ex.: dcterms:extent):');if(!prop)return;const label=prompt('Rótulo do campo:',prop);state.omekaCurrentFields=state.omekaCurrentFields||[];state.omekaCurrentFields.push(omField(prop.trim(),label||prop.trim(),'','Adicionado manualmente'));omRenderFields(state.omekaCurrentFields)};
+ $('#omMedia').onchange=ev=>{omMediaFile=ev.target.files[0]||null;$('#omMediaName').textContent=omMediaFile?'Arquivo selecionado: '+omMediaFile.name+' · '+Math.round(omMediaFile.size/1024)+' KB (não enviado ao servidor).':''};
+ function omBuildDraft(){
+  const src=state.sources.find(s=>s.id===$('#omSource').value)||omCurrentSource;
+  return {id:id(),source_id:src?.id||'',source_filename:src?.filename||'',title:$('#omTitle').value,resource_template:$('#omTemplate').value,resource_class:$('#omClass').value,item_set:$('#omItemSet').value,visibility:$('#omVisibility').value,language:$('#omLanguage').value,properties:(state.omekaCurrentFields||[]).map(f=>({...f})),media_filename:omMediaFile?.name||'',media_note:omMediaFile?'Arquivo selecionado localmente; não incorporado no backup nem enviado ao Omeka S.':'',status:'Rascunho para revisão',created_at:new Date().toISOString()};
+ }
+ $('#omSave').onclick=()=>{if(!$('#omTitle').value.trim())return alert('Informe o título do item.');state.omekaDrafts=state.omekaDrafts||[];const d=omBuildDraft();state.omekaDrafts.push(d);if(saveState()){omRenderDrafts();alert('Rascunho Omeka S salvo localmente.')}};
+ $('#omExport').onclick=()=>download('omeka-s-item-'+Date.now()+'.json',JSON.stringify(omBuildDraft(),null,2));
+ function omRenderDrafts(){const list=state.omekaDrafts||[];$('#omDraftList').innerHTML=list.length?list.slice().reverse().map(d=>'<article class="sourceitem"><div><b>'+esc(d.title)+'</b><small>'+esc(d.resource_class||'Classe não definida')+' · '+esc(d.status)+' · '+new Date(d.created_at).toLocaleDateString('pt-BR')+'</small><p>'+d.properties.length+' propriedades · '+esc(d.source_filename)+'</p></div></article>').join(''):'Nenhum rascunho Omeka S.'}
+ omFillSourceOptions();omRenderDrafts();
  $('#identifyUpload').onclick=()=>$('#moduleFile').click();
  $('#openEntityList').onclick=()=>window.page('entities');
  // Sincroniza os selects das fichas com o cadastro único de entidades.
