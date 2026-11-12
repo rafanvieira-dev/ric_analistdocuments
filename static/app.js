@@ -265,6 +265,7 @@ render();
  omFillSourceOptions();omRenderDrafts();
  $('#identifyUpload').onclick=()=>$('#moduleFile').click();
  $('#homeCamera').onclick=()=>{window.page('identify');$('#moduleCamera').click()};
+ $('#homeTiff').onclick=()=>{window.page('identify');$('#moduleFile').accept='.tif,.tiff';$('#moduleFile').click();$('#moduleFile').accept='.docx,.pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff'};
  $('#openEntityList').onclick=()=>window.page('entities');
  // Sincroniza os selects das fichas com o cadastro único de entidades.
  function fillEntitySelects(){['labEntity','ricEntity'].forEach(id=>{const el=$('#'+id),v=el.value;el.innerHTML='<option value="">Não vinculada</option>'+state.entities.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');el.value=v})}
