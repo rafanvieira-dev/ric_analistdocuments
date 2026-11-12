@@ -462,7 +462,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   if(logoutButton)logoutButton.hidden=true;
  };
  const unlock=()=>{
-  document.body.classList.remove('auth-required');
+  document.body.classList.remove('auth-required','auth-checking');
   document.body.classList.add('auth-ready');
   gate.hidden=true;
   if(status)status.textContent='● ADMINISTRADOR CONECTADO · DADOS AINDA LOCAIS';
