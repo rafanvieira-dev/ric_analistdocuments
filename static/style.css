@@ -134,3 +134,5 @@
  .welcome{padding:25px}
  .orb{margin-right:8px}
 }
+
+.photo-actions{display:flex;gap:9px;flex-wrap:wrap;margin:0 0 13px}.photo-actions .btn{min-height:40px}.hint{font-size:11px;color:#82909e;line-height:1.5;margin:9px 0 0}@media(max-width:700px){.photo-actions{display:grid;grid-template-columns:1fr}.photo-actions .btn{width:100%;text-align:center}}
