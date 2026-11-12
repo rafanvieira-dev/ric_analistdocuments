@@ -533,5 +533,17 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
    message(m[e.code]||('Não foi possível entrar: '+(e.code||e.message)),true)
   }finally{login.disabled=false;login.textContent='Entrar'}
  });
- logout?.addEventListener('click',async()=>{if(window.RiCFirebase&&confirm('Deseja encerrar a sessão?'))await window.RiCFirebase.authApi.signOut(window.RiCFirebase.auth)});
+ logout?.addEventListener('click',async()=>{
+  const f=window.RiCFirebase;
+  if(!f||!confirm('Deseja encerrar a sessão administrativa?'))return;
+  logout.disabled=true;
+  try{
+   manualVisitor=false;
+   await f.authApi.signOut(f.auth);
+   lock('Sessão encerrada');
+   message('Você saiu da conta administrativa. Entre novamente ou escolha a consulta pública.',false);
+  }catch(e){
+   message('Não foi possível encerrar a sessão: '+(e.code||e.message),true);
+  }finally{logout.disabled=false}
+ });
 })();
