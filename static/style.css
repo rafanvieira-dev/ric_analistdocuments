@@ -146,3 +146,5 @@
 .om-field textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:9px;font:12px inherit;color:#314b60;resize:vertical}
 .om-field small{display:block;margin-top:7px;color:#81909b;font-size:10px;line-height:1.4}
 @media(max-width:700px){.om-fields{grid-template-columns:1fr}}
+
+.home-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.home-actions .btn{margin-top:0}@media(max-width:700px){.home-actions{display:grid;grid-template-columns:1fr}.home-actions .btn{width:100%}}
