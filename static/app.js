@@ -417,12 +417,16 @@ if(resetButton)resetButton.onclick=()=>{
 
 /* Instalação como aplicativo (PWA) e cache básico da interface */
 let pendingInstallPrompt=null;
-window.addEventListener('beforeinstallprompt',ev=>{ev.preventDefault();pendingInstallPrompt=ev;const b=document.querySelector('#installApp');if(b)b.hidden=false});
-window.addEventListener('appinstalled',()=>{pendingInstallPrompt=null;const b=document.querySelector('#installApp');if(b)b.hidden=true});
 const installButton=document.querySelector('#installApp');
+const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+if(installButton&&!isStandalone)installButton.hidden=false;
+window.addEventListener('beforeinstallprompt',ev=>{ev.preventDefault();pendingInstallPrompt=ev;if(installButton){installButton.hidden=false;installButton.textContent='Instalar aplicativo'}});
+window.addEventListener('appinstalled',()=>{pendingInstallPrompt=null;if(installButton){installButton.hidden=true}});
 if(installButton)installButton.addEventListener('click',async()=>{
- if(pendingInstallPrompt){pendingInstallPrompt.prompt();await pendingInstallPrompt.userChoice;pendingInstallPrompt=null;installButton.hidden=true;return}
- alert('Para instalar: no Android, abra o menu ⋮ do navegador e escolha “Instalar app” ou “Adicionar à tela inicial”. No iPhone, toque em Compartilhar e depois “Adicionar à Tela de Início”.');
+ if(pendingInstallPrompt){pendingInstallPrompt.prompt();const choice=await pendingInstallPrompt.userChoice;if(choice?.outcome==='accepted')installButton.hidden=true;pendingInstallPrompt=null;return}
+ const ua=navigator.userAgent||'',isAppleMobile=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+ if(isAppleMobile){alert('Para instalar no iPad/iPhone: abra este site no Safari, toque em Compartilhar (quadrado com seta para cima), role as opções e escolha “Adicionar à Tela de Início”. Confirme em “Adicionar”. Se estiver usando Chrome ou outro navegador, abra o endereço no Safari.');return}
+ alert('Para instalar no tablet Android: abra este site no Chrome, toque no menu ⋮ e escolha “Instalar app”. Se essa opção não aparecer, escolha “Adicionar à tela inicial”. Confirme a instalação. Use o Chrome atualizado e acesse o site por HTTPS.');
 });
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(err=>console.warn('Service worker não registrado:',err)));
