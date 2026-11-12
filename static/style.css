@@ -80,7 +80,7 @@
  body{font-size:14px;padding-bottom:78px}
  .sidebar{inset:auto 0 0;width:100%;height:72px;padding:7px 8px calc(7px + env(safe-area-inset-bottom));display:block;background:#17384f;box-shadow:0 -5px 22px #102b3b25;z-index:50}
  .sidebar .brand,.sidebar .sidefoot,.sidebar>.navlabel{display:none!important}
- .sidebar .module-nav{position:static;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin:0;padding:0;border:0;height:100%}
+ .sidebar .module-nav{position:static;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:3px;margin:0;padding:0;border:0;height:100%}
  .sidebar .module-nav .navlabel{display:none!important}
  .sidebar .module-link{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;margin:0;padding:5px 2px;border-radius:8px;min-width:0;font-size:9px;line-height:1.15;text-align:center;white-space:normal}
  .sidebar .module-link .module-num{display:none}
