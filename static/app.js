@@ -61,14 +61,22 @@ function renderModules(){
 function renderGraphEditor(){
  const editor=$('#graphRelationEditor');if(!editor)return;
  if(!editor.dataset.initialized){
-  editor.innerHTML='<h3>Registrar nova relação</h3><p class="hint">Selecione duas entidades já validadas. A relação ficará pendente até sua confirmação.</p><div class="relationform"><label>Entidade de origem<select id="graphSubject"></select></label><label>Tipo de relação<select id="graphPredicate"><option value="fundador de">fundador de</option><option value="dirigente de">dirigente de</option><option value="membro de">membro de</option><option value="localizado em">localizado em</option><option value="ocorreu em">ocorreu em</option><option value="associado a">associado a</option><option value="antecessor de">antecessor de</option><option value="sucessor de">sucessor de</option><option value="participou de">participou de</option><option value="produziu">produziu</option><option value="mencionado em">mencionado em</option></select></label><label>Entidade relacionada<select id="graphObject"></select></label><label class="wide">Evidência / justificativa<input id="graphEvidence" placeholder="Informe o trecho, página ou referência que sustenta a relação"></label><button class="btn primary" type="button" id="graphAddRelation">Registrar relação para revisão</button></div><div class="graph-relation-list" id="graphRelationList"></div>';
+  editor.innerHTML='<h3>Registrar relações</h3><p class="hint">Escolha uma entidade de origem e adicione quantas ligações precisar. A justificativa é opcional; todas as relações ficarão pendentes para revisão.</p><div class="relationform batch-relation-form"><label class="wide">Entidade de origem<select id="graphSubject"></select></label><div class="batch-relation-head"><b>Entidades relacionadas</b><button class="mini" type="button" id="graphAddRow">＋ Adicionar ligação</button></div><div id="graphRelationRows" class="batch-relation-rows"></div><label class="wide">Evidência / justificativa (opcional)<input id="graphEvidence" placeholder="Se desejar, informe trecho, página ou referência"></label><button class="btn primary" type="button" id="graphAddRelation">Registrar todas as ligações</button></div><div class="graph-relation-list" id="graphRelationList"></div>';
+  const predicateOptions='<option value="fundador de">fundador de</option><option value="dirigente de">dirigente de</option><option value="membro de">membro de</option><option value="localizado em">localizado em</option><option value="ocorreu em">ocorreu em</option><option value="associado a">associado a</option><option value="antecessor de">antecessor de</option><option value="sucessor de">sucessor de</option><option value="participou de">participou de</option><option value="produziu">produziu</option><option value="mencionado em">mencionado em</option>';
+  const addRow=()=>{const row=document.createElement('div');row.className='batch-relation-row';row.innerHTML='<label>Tipo de relação<select class="batch-predicate">'+predicateOptions+'</select></label><label>Entidade relacionada<select class="batch-object"></select></label><button class="mini danger" type="button" data-remove-relation-row aria-label="Remover ligação">Remover</button>';editor.querySelector('#graphRelationRows').appendChild(row);fillObjects(row.querySelector('.batch-object'))};
+  const fillObjects=select=>{const valid=state.entities.filter(e=>e.status==='Validada');select.innerHTML='<option value="">Selecione a entidade</option>'+valid.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('')};
+  editor.querySelector('#graphAddRow').addEventListener('click',addRow);
+  editor.querySelector('#graphRelationRows').addEventListener('click',ev=>{const b=ev.target.closest('[data-remove-relation-row]');if(!b)return;const rows=editor.querySelectorAll('.batch-relation-row');if(rows.length===1){rows[0].querySelector('.batch-object').value='';rows[0].querySelector('.batch-predicate').selectedIndex=0}else b.closest('.batch-relation-row').remove()});
   editor.querySelector('#graphAddRelation').addEventListener('click',()=>{
-   const subject=$('#graphSubject').value,object=$('#graphObject').value,evidence=$('#graphEvidence').value.trim();
-   if(!subject||!object)return alert('É necessário ter duas entidades validadas para registrar uma relação.');
-   if(subject===object)return alert('Escolha duas entidades diferentes.');
-   if(!evidence)return alert('Informe a evidência ou justificativa da relação.');
-   state.relations.push({id:id(),subject,predicate:$('#graphPredicate').value,object,evidence,source_id:state.entities.find(e=>e.id===subject)?.source_id||'',status:'Pendente',created_at:new Date().toISOString()});
-   if(saveState()){$('#graphEvidence').value='';render()}
+   const subject=$('#graphSubject').value,evidence=$('#graphEvidence').value.trim();
+   const rows=[...editor.querySelectorAll('.batch-relation-row')].map(row=>({predicate:row.querySelector('.batch-predicate').value,object:row.querySelector('.batch-object').value})).filter(row=>row.object);
+   if(!subject)return alert('Selecione uma entidade de origem.');
+   if(!rows.length)return alert('Adicione pelo menos uma entidade relacionada.');
+   if(rows.some(row=>row.object===subject))return alert('A entidade de origem não pode ser relacionada a ela mesma.');
+   if(new Set(rows.map(row=>row.predicate+'|'+row.object)).size!==rows.length)return alert('Há ligações repetidas. Remova as duplicadas antes de continuar.');
+   const sourceId=state.entities.find(e=>e.id===subject)?.source_id||'';
+   rows.forEach(row=>state.relations.push({id:id(),subject,predicate:row.predicate,object:row.object,evidence,source_id:sourceId,status:'Pendente',created_at:new Date().toISOString()}));
+   if(saveState()){editor.querySelector('#graphEvidence').value='';editor.querySelector('#graphRelationRows').innerHTML='';addRow();render()}
   });
   editor.addEventListener('click',ev=>{
    const button=ev.target.closest('[data-graph-action]');if(!button)return;
@@ -77,14 +85,14 @@ function renderGraphEditor(){
    if(button.dataset.graphAction==='delete'){if(!confirm('Excluir esta relação?'))return;state.relations=state.relations.filter(r=>r.id!==relation.id)}
    saveState();render();
   });
-  editor.dataset.initialized='true';
+  addRow();editor.dataset.initialized='true';
  }
  const valid=state.entities.filter(e=>e.status==='Validada');
  const opts='<option value="">Selecione uma entidade validada</option>'+valid.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');
- const subject=$('#graphSubject'),object=$('#graphObject'),sv=subject.value,ov=object.value;
- subject.innerHTML=opts;object.innerHTML=opts;subject.value=valid.some(e=>e.id===sv)?sv:'';object.value=valid.some(e=>e.id===ov)?ov:'';
+ const subject=$('#graphSubject'),sv=subject.value;subject.innerHTML=opts;subject.value=valid.some(e=>e.id===sv)?sv:'';
+ editor.querySelectorAll('.batch-object').forEach(select=>{const value=select.value;select.innerHTML='<option value="">Selecione a entidade</option>'+valid.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');select.value=valid.some(e=>e.id===value)?value:''});
  const list=$('#graphRelationList');
- list.innerHTML=state.relations.length?'<h3>Relações registradas ('+state.relations.length+')</h3>'+state.relations.slice().reverse().map(r=>{const a=state.entities.find(e=>e.id===r.subject),b=state.entities.find(e=>e.id===r.object);return '<article class="sourceitem graph-relation-item"><div class="relation-compact"><b>'+esc(a?.name||'Entidade indisponível')+'</b> <span class="tag">'+esc(r.predicate)+'</span> <b>'+esc(b?.name||'Entidade indisponível')+'</b><span class="tag '+(r.status==='Validada'?'valid':'pending')+'">'+esc(r.status||'Pendente')+'</span></div><details class="relation-details"><summary>Ver evidência e ações</summary><small>'+esc(r.evidence||'Sem evidência registrada')+'</small><div class="rowactions">'+(r.status==='Validada'?'':'<button class="mini" data-graph-action="validate" data-id="'+esc(r.id)+'">Validar relação</button>')+'<button class="mini" data-graph-action="delete" data-id="'+esc(r.id)+'">Excluir</button></div></details></article>'}).join(''):'<p class="hint">Nenhuma relação cadastrada. Registre uma relação acima para começar.</p>';
+ list.innerHTML=state.relations.length?'<h3>Relações registradas ('+state.relations.length+')</h3>'+state.relations.slice().reverse().map(r=>{const a=state.entities.find(e=>e.id===r.subject),b=state.entities.find(e=>e.id===r.object);return '<article class="sourceitem graph-relation-item"><div class="relation-compact"><b>'+esc(a?.name||'Entidade indisponível')+'</b> <span class="tag">'+esc(r.predicate)+'</span> <b>'+esc(b?.name||'Entidade indisponível')+'</b><span class="tag '+(r.status==='Validada'?'valid':'pending')+'">'+esc(r.status||'Pendente')+'</span></div><details class="relation-details"><summary>Ver evidência e ações</summary><small>'+esc(r.evidence||'Sem justificativa informada')+'</small><div class="rowactions">'+(r.status==='Validada'?'':'<button class="mini" data-graph-action="validate" data-id="'+esc(r.id)+'">Validar relação</button>')+'<button class="mini" data-graph-action="delete" data-id="'+esc(r.id)+'">Excluir</button></div></details></article>'}).join(''):'<p class="hint">Nenhuma relação cadastrada. Registre uma ou mais ligações acima.</p>';
  if(!valid.length)list.insertAdjacentHTML('afterbegin','<div class="notice">Ainda não há entidades validadas. Vá ao módulo Identificação, valide pelo menos duas entidades e volte aqui para conectá-las.</div>');
 }
 function drawGraph(){
