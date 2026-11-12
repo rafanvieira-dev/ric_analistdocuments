@@ -154,3 +154,5 @@
 
 /* Grifos automáticos de entidades encontradas nas fontes */
 .entity-highlight{background:#ffe58a;color:#503c08;border-radius:3px;padding:0 2px;box-shadow:0 0 0 1px #f3d36b}
+
+.graph-editor{margin:0 0 16px}.graph-editor h3{margin:0 0 8px}.graph-editor .relationform{margin-top:12px}.graph-relation-list{margin-top:18px;display:grid;gap:8px}.graph-relation-item{margin:0}.graph-relation-item small{display:block;margin-top:5px}
