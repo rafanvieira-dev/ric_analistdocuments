@@ -231,3 +231,22 @@
 .public-empty{color:#667d8f}
 .visitor-footer{color:#718497}
 .visitor-access{border-color:#cbd9e2;color:#31566c;background:#f8fbfc}
+
+/* Formulário Omeka S alinhado à interface administrativa */
+.om-tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid #d7e0e6;margin:0 0 12px;padding:0 4px}
+.om-tab{border:1px solid #d7e0e6;border-bottom:0;background:#f5f7f8;color:#526b7d;padding:10px 16px;font:13px inherit;white-space:nowrap;cursor:pointer}
+.om-tab.active{background:#fff;color:#214c68;font-weight:700;border-top:3px solid #2b7c78}
+.om-tab-panel[hidden]{display:none!important}
+.om-select-label{display:grid;gap:7px;margin:8px 0 14px;font-size:12px;color:#526b7d}
+.om-select-label select,.om-select-label input,.om-select-label textarea{width:100%;border:1px solid #cfd9df;border-radius:4px;padding:10px;background:#fff;color:#314b60;font:13px inherit}
+.om-template-hint{font-size:11px;color:#748797;background:#f5f8fa;padding:10px;border-radius:6px}
+.om-properties{display:grid;gap:12px}
+.om-property{background:#f5f6f7;border:1px solid #e2e7ea;padding:12px;border-radius:4px}
+.om-property-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.om-property-heading b{display:block;color:#425d70;font-size:13px}.om-property-heading small{display:block;color:#7d8d98;font:11px monospace;margin-top:3px}
+.om-property-values{display:grid;gap:8px}
+.om-value{display:grid;grid-template-columns:145px minmax(0,1fr) auto;gap:8px;align-items:start}
+.om-value select,.om-value input,.om-value textarea{width:100%;min-width:0;border:1px solid #d0d9de;background:#fff;border-radius:3px;padding:9px;font:12px inherit;color:#30495d}
+.om-value textarea{resize:vertical}
+.om-property>.mini{margin-top:8px}
+@media(max-width:700px){.om-tab{padding:9px 11px;font-size:11px}.om-value{grid-template-columns:1fr}.om-property-heading{align-items:flex-start;flex-wrap:wrap}}
