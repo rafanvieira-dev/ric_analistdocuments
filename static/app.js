@@ -518,7 +518,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  const gate=$('#authGate'),form=$('#adminLoginForm'),email=$('#adminEmail'),password=$('#adminPassword'),msg=$('#authMessage'),status=$('#cloudStatus'),login=$('#adminLoginButton'),logout=$('#logoutAdmin'),visitorBtn=$('#visitorAccessButton'),visitor=$('#visitorView');
  let started=false,manualVisitor=false,entities=[],relations=[];
  const message=(s,error=true)=>{msg.textContent=s;msg.classList.toggle('error',error)};
- const lock=s=>{document.body.classList.add('auth-required');document.body.classList.remove('auth-ready','visitor-ready');gate.hidden=false;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● '+s;if(logout)logout.hidden=true};
+ const lock=s=>{document.body.classList.add('auth-required');document.body.classList.remove('auth-checking','auth-ready','visitor-ready');gate.hidden=false;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● '+s;if(logout)logout.hidden=true};
  const admin=async()=>{document.body.classList.remove('auth-required','auth-checking','visitor-ready');document.body.classList.add('auth-ready');gate.hidden=true;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● ADMINISTRADOR · SINCRONIZANDO DADOS VALIDADOS';if(logout)logout.hidden=false;let loading=document.getElementById('ricCloudLoading');if(!loading){loading=document.createElement('div');loading.id='ricCloudLoading';loading.className='cloud-loading';loading.setAttribute('role','status');loading.setAttribute('aria-live','polite');const header=document.querySelector('main header');if(header)header.insertAdjacentElement('afterend',loading)}loading.innerHTML='<span class="cloud-loading-spinner" aria-hidden="true"></span><span><b>Carregando seus dados…</b><small>Sincronizando entidades e relações validadas com o Firebase. Isso pode levar alguns segundos.</small></span>';loading.hidden=false;try{await loadValidatedRecordsFromCloud();render();if(status)status.textContent='● ADMINISTRADOR · DADOS VALIDADOS SINCRONIZADOS';loading.hidden=true;message('Acesso confirmado. Entidades e relações validadas foram sincronizadas com o Firebase; documentos e candidatos pendentes continuam locais.',false)}catch(e){if(status)status.textContent='● ADMINISTRADOR · FALHA NA SINCRONIZAÇÃO';loading.innerHTML='<span class="cloud-loading-warning">!</span><span><b>Não foi possível carregar todos os dados</b><small>'+esc(e.code||e.message)+' · Atualize a página ou tente novamente.</small></span>';loading.hidden=false;message('Acesso confirmado, mas não foi possível carregar os registros validados do Firebase: '+(e.code||e.message),true)}};
  async function fetchPublic(){const f=window.RiCFirebase,a=f.dbApi,d=f.db;const [es,rs]=await Promise.all([a.getDocs(a.collection(d,'public_entities')),a.getDocs(a.collection(d,'public_relations'))]);entities=es.docs.map(x=>x.data()).filter(x=>x?.id&&x?.name);relations=rs.docs.map(x=>x.data()).filter(x=>x?.subject&&x?.object&&x?.predicate);renderPublic()}
  function visitorMode(){document.body.classList.remove('auth-required','auth-checking','auth-ready');document.body.classList.add('visitor-ready');gate.hidden=true;$('.sidebar').hidden=true;$('main').hidden=true;visitor.hidden=false;if(status)status.textContent='● CONSULTA PÚBLICA';if(logout)logout.hidden=true;fetchPublic().catch(e=>$('#visitorStatus').textContent='Falha ao carregar acervo público: '+(e.code||e.message))}
@@ -573,7 +573,15 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   message('Você saiu da consulta pública. Escolha como deseja continuar.',false)
  });
  async function verifyAccess(u,f){
-  if(!u){lock('Acesso administrativo ou consulta pública');message('Entre com uma conta autorizada ou acesse a consulta pública.',false);return false}
+  if(!u){
+   lock('Acesso administrativo ou consulta pública');
+   let marker='não registrado',storage='indisponível';
+   try{marker=localStorage.getItem('ric_auth_login_marker_v1')?'login anterior registrado':'nenhum login registrado';localStorage.setItem('ric_auth_storage_test','ok');storage=localStorage.getItem('ric_auth_storage_test')==='ok'?'disponível':'sem leitura';localStorage.removeItem('ric_auth_storage_test')}catch(e){storage=e.name||'bloqueado'}
+   const diagnostic='Diagnóstico: Firebase retornou usuário nulo após carregar. Persistência='+String(f.persistenceMode||'não identificada')+'; armazenamento='+storage+'; '+marker+'.';
+   console.warn('[RiC Auth]',diagnostic);
+   message('Entre com uma conta autorizada. '+diagnostic,true);
+   return false
+  }
   // Enquanto o perfil é verificado, não exibir o formulário de login:
   // a sessão já existe e a leitura do Firestore pode levar alguns segundos.
   document.body.classList.remove('auth-required','visitor-ready');
@@ -636,6 +644,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   login.disabled=true;login.textContent='Entrando…';message('Validando credenciais…',false);
   try{
    const credential=await f.authApi.signInWithEmailAndPassword(f.auth,email.value.trim(),password.value);
+   try{localStorage.setItem('ric_auth_login_marker_v1',new Date().toISOString())}catch(e){}
    password.value='';
    await verifyAccess(credential.user||f.auth.currentUser,f);
   }catch(e){
@@ -650,6 +659,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   try{
    manualVisitor=false;
    await f.authApi.signOut(f.auth);
+   try{localStorage.removeItem('ric_auth_login_marker_v1')}catch(e){}
    lock('Sessão encerrada');
    message('Você saiu da conta administrativa. Entre novamente ou escolha a consulta pública.',false);
   }catch(e){
