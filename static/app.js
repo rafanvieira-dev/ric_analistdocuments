@@ -385,8 +385,9 @@ if(resetButton)resetButton.onclick=()=>{
  localStorage.removeItem('ric_knowledge_local_v1');
  state=emptyState();
  saveState();
- alert('Aplicativo zerado. A página será recarregada.');
- location.reload();
+ render();
+ page('identify');
+ alert('Dados do aplicativo apagados. Sua sessão administrativa foi mantida.');
 };
 
 /* Instalação como aplicativo (PWA) e cache básico da interface */
