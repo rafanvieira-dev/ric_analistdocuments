@@ -315,3 +315,14 @@
 #consolidatedItemsPanel .relation-item-row:nth-child(even){background:#f8fafb}
 #consolidatedItemsPanel .relation-items-head{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr) minmax(80px,.6fr) minmax(80px,.6fr);gap:12px;padding:10px 13px;background:#edf2f5;color:#536879;font-size:11px;font-weight:700}
 @media(max-width:620px){#consolidatedItemsPanel .relation-item-row,#consolidatedItemsPanel .relation-items-head{grid-template-columns:minmax(130px,1.6fr) minmax(85px,1fr) 60px 55px;gap:6px;padding:9px 7px;font-size:12px}}
+
+/* Revisão individual das menções associadas a um item consolidado */
+.mention-review-list{display:grid;gap:10px;margin:14px 0}
+.mention-review-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:12px;border:1px solid #dce5eb;border-radius:10px;background:#f8fafb}
+.mention-review-row>div:first-child{min-width:0;flex:1}
+.mention-review-row b{display:block;font-size:13px}
+.mention-review-row small{display:block;color:#637789;margin-top:3px}
+.mention-review-row p{margin:7px 0 0;color:#40596d;font-size:13px;white-space:normal}
+.mention-review-row .rowactions{flex-shrink:0}
+.mention-review-row button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:680px){.mention-review-row{flex-direction:column}.mention-review-row .rowactions{width:100%;flex-wrap:wrap}}
