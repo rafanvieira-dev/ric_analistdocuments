@@ -602,8 +602,27 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   }
  }
  async function start(f){
-  if(started)return;started=true;lock('Verificando sessão');
-  f.authApi.onAuthStateChanged(f.auth,u=>{if(manualVisitor&&!u)return;verifyAccess(u,f)});
+  if(started)return;
+  started=true;
+  // Não mostrar a tela de login antes de o Firebase restaurar a sessão persistida.
+  // authStateReady resolve somente depois da leitura do estado inicial de autenticação.
+  document.body.classList.remove('auth-required','auth-ready','visitor-ready');
+  document.body.classList.add('auth-checking');
+  gate.hidden=true;
+  visitor.hidden=true;
+  $('.sidebar').hidden=false;
+  $('main').hidden=false;
+  if(status)status.textContent='● RESTAURANDO SESSÃO';
+  if(logout)logout.hidden=true;
+  try{
+   await f.auth.authStateReady();
+  }catch(e){
+   console.warn('Não foi possível aguardar a restauração da sessão:',e);
+  }
+  f.authApi.onAuthStateChanged(f.auth,u=>{
+   if(manualVisitor&&!u)return;
+   verifyAccess(u,f);
+  });
  }
  function connect(){
   if(window.RiCFirebase){start(window.RiCFirebase);return}
