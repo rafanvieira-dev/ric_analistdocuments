@@ -58,7 +58,7 @@ function renderModules(){
  renderGraphEditor();
  drawGraph();
 }
-let relationFocusId=null;
+let relationFocusId=null,relationListPage=0; if(!Number.isInteger(relationListPage))relationListPage=0;
 
 // Persistência seletiva: somente entidades e relações validadas são sincronizadas.
 async function saveValidatedEntityToCloud(entity){
@@ -102,9 +102,14 @@ function renderGraphEditor(){
  if(!focused)relationFocusId=null;
  const counts=new Map(valid.map(e=>[e.id,0]));
  state.relations.forEach(r=>{if(counts.has(r.subject))counts.set(r.subject,counts.get(r.subject)+1);if(counts.has(r.object))counts.set(r.object,counts.get(r.object)+1)});
- const entityCards='<div class="relation-items-table"><div class="relation-items-head"><span>Item</span><span>Resource class / Tipo</span><span>Relações</span><span>Ação</span></div>'+valid.map(e=>'<button type="button" class="relation-item-row '+(focused?.id===e.id?'active':'')+'" data-open-relation-entity="'+esc(e.id)+'"><span class="relation-item-title">'+esc(e.name)+'</span><span class="relation-item-type">'+esc(e.type)+'</span><span><span class="tag '+(counts.get(e.id)?'valid':'pending')+'">'+(counts.get(e.id)||0)+' relação(ões)</span></span><span class="relation-item-open">Abrir ›</span></button>').join('')+'</div>';
+ const sortedValid=valid.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR',{sensitivity:'base',numeric:true}));
+ const pageSize=15,totalPages=Math.max(1,Math.ceil(sortedValid.length/pageSize));relationListPage=Math.min(relationListPage,totalPages-1);
+ const pageItems=sortedValid.slice(relationListPage*pageSize,(relationListPage+1)*pageSize);
+ const entityCards='<div class="relation-items-table"><div class="relation-items-head"><span>Item</span><span>Resource class / Tipo</span><span>Relações</span><span>Ação</span></div>'+pageItems.map(e=>'<button type="button" class="relation-item-row '+(focused?.id===e.id?'active':'')+'" data-open-relation-entity="'+esc(e.id)+'"><span class="relation-item-title">'+esc(e.name)+'</span><span class="relation-item-type">'+esc(e.type)+'</span><span><span class="tag '+(counts.get(e.id)?'valid':'pending')+'">'+(counts.get(e.id)||0)+' relação(ões)</span></span><span class="relation-item-open">Abrir ›</span></button>').join('')+'</div><div class="relation-pagination"><span>Exibindo '+(sortedValid.length?relationListPage*pageSize+1:0)+'–'+Math.min((relationListPage+1)*pageSize,sortedValid.length)+' de '+sortedValid.length+' itens</span><div><button type="button" class="mini" id="relationPrevPage" '+(relationListPage===0?'disabled':'')+'>‹ Anterior</button><span class="relation-page-number">Página '+(relationListPage+1)+' de '+totalPages+'</span><button type="button" class="mini" id="relationNextPage" '+(relationListPage>=totalPages-1?'disabled':'')+'>Próxima ›</button></div></div>';
  if(!focused){
-  editor.innerHTML='<h3>Itens validados</h3><p class="hint">Cada entidade validada aparece como um item. Selecione um item para cadastrar, revisar ou editar suas relações.</p><div class="relation-entity-list">'+(entityCards||'<div class="notice">Ainda não há entidades validadas. Vá à Análise, revise os candidatos e valide as entidades para que apareçam aqui.</div>')+'</div>';
+  editor.innerHTML='<h3>Itens validados</h3><p class="hint">Cada entidade validada aparece como um item. Selecione um item para cadastrar, revisar ou editar suas relações.</p><div class="relation-entity-list">'+(sortedValid.length?entityCards:'<div class="notice">Ainda não há entidades validadas. Vá à Análise, revise os candidatos e valide as entidades para que apareçam aqui.</div>')+'</div>';
+  editor.querySelector('#relationPrevPage')?.addEventListener('click',()=>{if(relationListPage>0){relationListPage--;renderGraphEditor()}});
+  editor.querySelector('#relationNextPage')?.addEventListener('click',()=>{if(relationListPage<totalPages-1){relationListPage++;renderGraphEditor()}});
   editor.querySelectorAll('[data-open-relation-entity]').forEach(b=>b.onclick=()=>{relationFocusId=b.dataset.openRelationEntity;renderGraphEditor()});
   return;
  }
