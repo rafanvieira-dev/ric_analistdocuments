@@ -83,7 +83,9 @@ function renderGraphEditor(){
    const relation=state.relations.find(r=>r.id===button.dataset.id);if(!relation)return;
    if(button.dataset.graphAction==='validate')relation.status='Validada';
    if(button.dataset.graphAction==='delete'){if(!confirm('Excluir esta relação?'))return;state.relations=state.relations.filter(r=>r.id!==relation.id)}
-   saveState();render();
+   if(!saveState())return;
+   renderGraphEditor();
+   drawGraph();
   });
   addRow();editor.dataset.initialized='true';
  }
