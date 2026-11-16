@@ -1,7 +1,7 @@
 // Inicialização do Firebase para o Sistema RiC.
 // Este arquivo apenas conecta os serviços; não migra nem altera dados locais.
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, indexedDBLocalPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -17,8 +17,15 @@ try {
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  // Mantém a sessão administrativa entre atualizações e reaberturas do navegador.
-  await setPersistence(auth, browserLocalPersistence);
+  // Persistência local durável: IndexedDB costuma ser mais confiável que localStorage
+  // em navegadores com políticas restritivas. Migra a sessão existente quando possível.
+  try {
+    await setPersistence(auth, indexedDBLocalPersistence);
+    console.info("Firebase Auth: persistência IndexedDB ativada.");
+  } catch (persistenceError) {
+    console.warn("IndexedDB indisponível para persistência de autenticação; usando persistência local do navegador.", persistenceError);
+    await setPersistence(auth, browserLocalPersistence);
+  }
   window.RiCFirebase = {
     app, auth, db,
     authApi: { onAuthStateChanged, signInWithEmailAndPassword, signOut },
