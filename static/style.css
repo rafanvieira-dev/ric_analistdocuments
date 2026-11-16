@@ -267,3 +267,16 @@
  .sidebar .module-link{font-size:10px;padding:6px 2px}
  .sidebar .module-link span:last-child{font-size:9px}
 }
+
+
+/* Lista de itens de relações inspirada na tabela administrativa do Omeka S */
+.relation-items-table{width:100%;overflow-x:auto;border:1px solid #dce3e8;border-radius:5px;background:#fff}
+.relation-items-head,.relation-item-row{display:grid;grid-template-columns:minmax(220px,2fr) minmax(140px,1fr) minmax(110px,.8fr) 90px;gap:12px;align-items:center;min-width:620px;padding:10px 12px}
+.relation-items-head{background:#f4f6f7;border-bottom:1px solid #d8e0e5;color:#536879;font-size:11px;font-weight:700}
+.relation-item-row{width:100%;border:0;border-bottom:1px solid #e5e9ec;border-radius:0;background:#fff;text-align:left;cursor:pointer;color:#314b60;font:12px inherit}
+.relation-item-row:last-child{border-bottom:0}
+.relation-item-row:hover,.relation-item-row.active{background:#f2f7f8}
+.relation-item-title{font-weight:600;color:#8b3030}
+.relation-item-type{color:#64798a}
+.relation-item-open{color:#315d75;font-size:11px}
+@media(max-width:700px){.relation-items-head,.relation-item-row{grid-template-columns:minmax(170px,1.5fr) minmax(110px,1fr) minmax(95px,.8fr) 60px;gap:8px;padding:9px}.relation-items-head{font-size:10px}.relation-item-row{font-size:11px}}
