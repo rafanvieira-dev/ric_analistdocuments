@@ -296,3 +296,10 @@
 .cloud-loading-spinner{width:22px;height:22px;flex:0 0 22px;border:3px solid #c7dce2;border-top-color:#168b91;border-radius:50%;animation:ricCloudSpin .8s linear infinite}
 .cloud-loading-warning{display:grid;place-items:center;width:22px;height:22px;flex:0 0 22px;border-radius:50%;background:#fff0d9;color:#9a5b0b;font-weight:800}
 @keyframes ricCloudSpin{to{transform:rotate(360deg)}}
+
+/* Busca e filtro da lista de itens em Relações */
+.relation-list-filters{display:grid;grid-template-columns:minmax(220px,2fr) minmax(180px,1fr);gap:12px;margin:12px 0;padding:12px;border:1px solid #dce3e8;border-radius:5px;background:#f8fafb}
+.relation-list-filters label{display:flex;flex-direction:column;gap:6px;color:#536879;font-size:11px;font-weight:700}
+.relation-list-filters input,.relation-list-filters select{width:100%;min-width:0;min-height:38px;padding:8px 10px;border:1px solid #ccd7de;border-radius:4px;background:#fff;color:#314b60;font:inherit;font-size:13px}
+.relation-list-filters input:focus,.relation-list-filters select:focus{outline:2px solid #9cc9d0;outline-offset:1px}
+@media(max-width:600px){.relation-list-filters{grid-template-columns:1fr;gap:9px}}
