@@ -27,7 +27,7 @@ try {
     await setPersistence(auth, browserLocalPersistence);
   }
   window.RiCFirebase = {
-    app, auth, db,
+    app, auth, db, persistenceMode: 'indexedDB',
     authApi: { onAuthStateChanged, signInWithEmailAndPassword, signOut },
     dbApi: { collection, doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch, runTransaction }
   };
