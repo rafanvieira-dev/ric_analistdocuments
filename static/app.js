@@ -63,7 +63,7 @@ let relationFocusId=null,relationListPage=0,relationSearch='',relationTypeFilter
 
 // Persistência seletiva: somente entidades e relações validadas são sincronizadas.
 function normalizeEntityKey(name,type){
- return String(type||'Entidade').trim().toLocaleLowerCase('pt-BR')+'|'+String(name||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/[^\\p{L}\\p{N}]+/gu,' ').trim();
+ return String(type||'Entidade').trim().toLocaleLowerCase('pt-BR')+'|'+String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
 }
 function mergeExtractedCandidates(incoming,sourceId){
  const added=[];
