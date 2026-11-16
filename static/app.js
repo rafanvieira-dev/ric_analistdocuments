@@ -90,6 +90,9 @@ async function loadValidatedRecordsFromCloud(){
  cloudEntities.forEach(x=>{const local=entityMap.get(x.id);if(local)Object.assign(local,{name:x.name,type:x.type||local.type,status:'Validada'});else state.entities.push({...x,source_excerpt:'',evidence:'Registro sincronizado do Firebase',confidence:'—'})});
  const relationMap=new Map(state.relations.map(x=>[x.id,x]));
  cloudRelations.forEach(x=>{const local=relationMap.get(x.id);if(local)Object.assign(local,x);else state.relations.push(x)});
+ // Migra para a nuvem os registros já validados que ainda existiam somente neste navegador.
+ for(const entity of state.entities.filter(x=>x.status==='Validada'))await saveValidatedEntityToCloud(entity);
+ for(const relation of state.relations.filter(x=>x.status==='Validada'))await saveValidatedRelationToCloud(relation);
  saveState();
 }
 function renderGraphEditor(){
