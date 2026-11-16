@@ -171,6 +171,8 @@
 .auth-checking main,.auth-checking .sidebar,.auth-required main,.auth-required .sidebar{visibility:hidden}
 .auth-gate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:22px;background:linear-gradient(135deg,#102b43,#173b53 55%,#1d5b63)}
 .auth-gate[hidden]{display:none}
+/* Durante a restauração da sessão no F5, não mostrar o formulário antes de saber se o usuário já está autenticado. */
+body.auth-checking .auth-gate{display:none}
 .auth-card{width:min(100%,430px);padding:32px;border:1px solid #ffffff25;border-radius:18px;background:#fff;box-shadow:0 24px 80px #07182755;color:#29465c}
 .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:28px;color:#173b53;font-weight:850;font-size:26px;letter-spacing:-1px}
 .auth-brand span{font-size:9px;letter-spacing:1px;line-height:1.4;color:#718493;max-width:130px}
