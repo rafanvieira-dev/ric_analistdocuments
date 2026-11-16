@@ -666,4 +666,6 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
    message('Não foi possível encerrar a sessão: '+(e.code||e.message),true);
   }finally{logout.disabled=false}
  });
+ // Inicializa o fluxo de autenticação e registra a recuperação da sessão no F5.
+ connect();
 })();
