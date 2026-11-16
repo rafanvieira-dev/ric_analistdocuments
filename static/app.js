@@ -173,17 +173,16 @@ render();
  const main=document.querySelector('main');
  if(!navHost||!main)return;
  const modules=[
-  ['identify','01','Análise documental','Quem, o quê, onde e quando'],
-  ['omeka','02','Omeka S','Cadastro, ligações e grafo']
+  ['identify','01','Análise','Importar e validar entidades'],
+  ['relation-manager','02','Relações','Conferir ligações'],
+  ['omeka','03','Omeka S','Preparar e salvar fichas'],
+  ['graph','04','Grafo','Visualizar conexões']
  ];
  const nav=document.createElement('div');nav.className='module-nav';
  nav.innerHTML='<div class="navlabel">MÓDULOS PRINCIPAIS</div>'+modules.map(m=>'<button class="nav module-link" data-page="'+m[0]+'"><span class="module-num">'+m[1]+'</span><span>'+m[2]+'</span></button>').join('');
  navHost.insertAdjacentElement('afterend',nav);
  nav.querySelectorAll('.nav[data-page]').forEach(button=>button.addEventListener('click',()=>page(button.dataset.page)));
- // Etapas complementares ficam dentro do fluxo Omeka S, sem ocupar a navegação principal.
- const workflowNav='<nav class="workflow-nav" aria-label="Etapas do cadastro"><button type="button" data-workflow-page="omeka">1 · Cadastro Omeka S</button><button type="button" data-workflow-page="relation-manager">2 · Validar ligações</button><button type="button" data-workflow-page="graph">3 · Grafo</button></nav>';
- ['omeka','relation-manager','graph'].forEach(id=>{const host=document.getElementById(id);if(host)host.insertAdjacentHTML('afterbegin',workflowNav)});
- document.querySelectorAll('[data-workflow-page]').forEach(b=>b.addEventListener('click',()=>window.page(b.dataset.workflowPage)));
+
 
  const insertBefore=document.querySelector('#overview');
  const section=(id,html)=>{const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=html;insertBefore.insertAdjacentElement('beforebegin',s)};
