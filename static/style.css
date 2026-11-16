@@ -280,3 +280,10 @@
 .relation-item-type{color:#64798a}
 .relation-item-open{color:#315d75;font-size:11px}
 @media(max-width:700px){.relation-items-head,.relation-item-row{grid-template-columns:minmax(170px,1.5fr) minmax(110px,1fr) minmax(95px,.8fr) 60px;gap:8px;padding:9px}.relation-items-head{font-size:10px}.relation-item-row{font-size:11px}}
+
+/* Paginação da lista de itens de relações */
+.relation-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;border:1px solid #dce3e8;border-top:0;background:#f8fafb;color:#617487;font-size:12px}
+.relation-pagination>div{display:flex;align-items:center;gap:10px}
+.relation-page-number{white-space:nowrap;font-weight:600;color:#344f64}
+.relation-pagination button:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:600px){.relation-pagination{align-items:flex-start;flex-direction:column}.relation-pagination>div{width:100%;justify-content:space-between}}
