@@ -59,6 +59,38 @@ function renderModules(){
  drawGraph();
 }
 let relationFocusId=null;
+
+// Persistência seletiva: somente entidades e relações validadas são sincronizadas.
+async function saveValidatedEntityToCloud(entity){
+ const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
+ if(entity.status!=='Validada')return;
+ const payload={id:entity.id,name:entity.name,type:entity.type||'Entidade',status:'Validada',updated_at:new Date().toISOString()};
+ await f.dbApi.setDoc(f.dbApi.doc(f.db,'entities',entity.id),payload,{merge:true});
+}
+async function saveValidatedRelationToCloud(relation){
+ const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
+ if(relation.status!=='Validada')return;
+ const payload={id:relation.id,subject:relation.subject,predicate:relation.predicate,object:relation.object,evidence:relation.evidence||'',source_id:relation.source_id||'',status:'Validada',updated_at:new Date().toISOString()};
+ await f.dbApi.setDoc(f.dbApi.doc(f.db,'relations',relation.id),payload,{merge:true});
+}
+async function deleteRelationFromCloud(relationId){
+ const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
+ await f.dbApi.deleteDoc(f.dbApi.doc(f.db,'relations',relationId));
+}
+async function loadValidatedRecordsFromCloud(){
+ const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
+ const [entitiesSnap,relationsSnap]=await Promise.all([
+  f.dbApi.getDocs(f.dbApi.collection(f.db,'entities')),
+  f.dbApi.getDocs(f.dbApi.collection(f.db,'relations'))
+ ]);
+ const cloudEntities=entitiesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.name&&x.status==='Validada');
+ const cloudRelations=relationsSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.subject&&x?.object&&x?.predicate&&x.status==='Validada');
+ const entityMap=new Map(state.entities.map(x=>[x.id,x]));
+ cloudEntities.forEach(x=>{const local=entityMap.get(x.id);if(local)Object.assign(local,{name:x.name,type:x.type||local.type,status:'Validada'});else state.entities.push({...x,source_excerpt:'',evidence:'Registro sincronizado do Firebase',confidence:'—'})});
+ const relationMap=new Map(state.relations.map(x=>[x.id,x]));
+ cloudRelations.forEach(x=>{const local=relationMap.get(x.id);if(local)Object.assign(local,x);else state.relations.push(x)});
+ saveState();
+}
 function renderGraphEditor(){
  const editor=$('#graphRelationEditor');if(!editor)return;
  const valid=state.entities.filter(e=>e.status==='Validada');
@@ -91,9 +123,9 @@ function renderGraphEditor(){
   if(saveState()){renderGraphEditor();drawGraph()}
  };
  editor.querySelectorAll('[data-open-relation-entity]').forEach(b=>b.onclick=()=>{relationFocusId=b.dataset.openRelationEntity;renderGraphEditor()});
- editor.querySelectorAll('[data-save-relation]').forEach(b=>b.onclick=()=>{const r=state.relations.find(x=>x.id===b.dataset.saveRelation);if(!r)return;r.predicate=editor.querySelector('[data-edit-predicate="'+r.id+'"]').value;r.evidence=editor.querySelector('[data-edit-evidence="'+r.id+'"]').value.trim();if(saveState()){renderGraphEditor();drawGraph()}});
- editor.querySelectorAll('[data-validate-relation]').forEach(b=>b.onclick=()=>{const r=state.relations.find(x=>x.id===b.dataset.validateRelation);if(!r)return;r.status='Validada';if(saveState()){renderGraphEditor();drawGraph()}});
- editor.querySelectorAll('[data-delete-relation]').forEach(b=>b.onclick=()=>{if(!confirm('Excluir esta relação?'))return;state.relations=state.relations.filter(x=>x.id!==b.dataset.deleteRelation);if(saveState()){renderGraphEditor();drawGraph()}});
+ editor.querySelectorAll('[data-save-relation]').forEach(b=>b.onclick=()=>{const r=state.relations.find(x=>x.id===b.dataset.saveRelation);if(!r)return;r.predicate=editor.querySelector('[data-edit-predicate="'+r.id+'"]').value;r.evidence=editor.querySelector('[data-edit-evidence="'+r.id+'"]').value.trim();if(saveState()){if(r.status==='Validada')saveValidatedRelationToCloud(r).then(()=>{renderGraphEditor();drawGraph()}).catch(e=>alert('Alteração ficou apenas local; falha ao sincronizar: '+(e.code||e.message)));else{renderGraphEditor();drawGraph()}}});
+ editor.querySelectorAll('[data-validate-relation]').forEach(b=>b.onclick=async()=>{const r=state.relations.find(x=>x.id===b.dataset.validateRelation);if(!r)return;const previous=r.status;r.status='Validada';if(!saveState()){r.status=previous;return}b.disabled=true;b.textContent='Salvando…';try{await saveValidatedRelationToCloud(r);renderGraphEditor();drawGraph();alert('Relação validada e salva no Firebase.')}catch(e){r.status=previous;saveState();renderGraphEditor();drawGraph();alert('Não foi possível salvar a relação no Firebase: '+(e.code||e.message))}});
+ editor.querySelectorAll('[data-delete-relation]').forEach(b=>b.onclick=async()=>{if(!confirm('Excluir esta relação?'))return;const rid=b.dataset.deleteRelation,r=state.relations.find(x=>x.id===rid);state.relations=state.relations.filter(x=>x.id!==rid);if(!saveState())return;try{if(r?.status==='Validada')await deleteRelationFromCloud(rid);renderGraphEditor();drawGraph()}catch(e){alert('A relação foi removida localmente, mas não foi possível removê-la do Firebase: '+(e.code||e.message))}});
 }
 function drawGraph(){
  const host=$('#graphView');if(!host)return;
@@ -425,7 +457,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  let started=false,manualVisitor=false,entities=[],relations=[];
  const message=(s,error=true)=>{msg.textContent=s;msg.classList.toggle('error',error)};
  const lock=s=>{document.body.classList.add('auth-required');document.body.classList.remove('auth-ready','visitor-ready');gate.hidden=false;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● '+s;if(logout)logout.hidden=true};
- const admin=()=>{document.body.classList.remove('auth-required','auth-checking','visitor-ready');document.body.classList.add('auth-ready');gate.hidden=true;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● ADMINISTRADOR · DADOS AINDA LOCAIS';if(logout)logout.hidden=false;message('Acesso administrativo confirmado. Os dados de trabalho continuam neste navegador; somente o grafo publicado será enviado ao Firestore.',false)};
+ const admin=async()=>{document.body.classList.remove('auth-required','auth-checking','visitor-ready');document.body.classList.add('auth-ready');gate.hidden=true;visitor.hidden=true;$('.sidebar').hidden=false;$('main').hidden=false;if(status)status.textContent='● ADMINISTRADOR · SINCRONIZANDO DADOS VALIDADOS';if(logout)logout.hidden=false;try{await loadValidatedRecordsFromCloud();render();if(status)status.textContent='● ADMINISTRADOR · DADOS VALIDADOS SINCRONIZADOS';message('Acesso confirmado. Entidades e relações validadas foram sincronizadas com o Firebase; documentos e candidatos pendentes continuam locais.',false)}catch(e){if(status)status.textContent='● ADMINISTRADOR · FALHA NA SINCRONIZAÇÃO';message('Acesso confirmado, mas não foi possível carregar os registros validados do Firebase: '+(e.code||e.message),true)}};
  async function fetchPublic(){const f=window.RiCFirebase,a=f.dbApi,d=f.db;const [es,rs]=await Promise.all([a.getDocs(a.collection(d,'public_entities')),a.getDocs(a.collection(d,'public_relations'))]);entities=es.docs.map(x=>x.data()).filter(x=>x?.id&&x?.name);relations=rs.docs.map(x=>x.data()).filter(x=>x?.subject&&x?.object&&x?.predicate);renderPublic()}
  function visitorMode(){document.body.classList.remove('auth-required','auth-checking','auth-ready');document.body.classList.add('visitor-ready');gate.hidden=true;$('.sidebar').hidden=true;$('main').hidden=true;visitor.hidden=false;if(status)status.textContent='● CONSULTA PÚBLICA';if(logout)logout.hidden=true;fetchPublic().catch(e=>$('#visitorStatus').textContent='Falha ao carregar acervo público: '+(e.code||e.message))}
  function renderPublic(){
@@ -489,7 +521,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
    if(v.active!==true||!['admin','visitor'].includes(v.role)){
     message('Login realizado, mas o perfil não está autorizado. Valores encontrados: role='+String(v.role)+', active='+String(v.active)+'.',true);return false
    }
-   if(v.role==='admin')admin();else visitorMode();
+   if(v.role==='admin')await admin();else visitorMode();
    return true
   }catch(e){
    lock('Falha ao verificar autorização');
