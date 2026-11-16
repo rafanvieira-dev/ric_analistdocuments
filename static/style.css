@@ -250,3 +250,10 @@
 .om-value textarea{resize:vertical}
 .om-property>.mini{margin-top:8px}
 @media(max-width:700px){.om-tab{padding:9px 11px;font-size:11px}.om-value{grid-template-columns:1fr}.om-property-heading{align-items:flex-start;flex-wrap:wrap}}
+
+
+/* Navegação principal enxuta e etapas internas do fluxo Omeka S */
+.workflow-nav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;padding:10px;background:#edf3f5;border:1px solid #dce6eb;border-radius:10px}
+.workflow-nav button{border:1px solid #d4e0e6;border-radius:7px;padding:9px 12px;background:#fff;color:#34566b;font:600 11px inherit;cursor:pointer}
+.workflow-nav button:hover{border-color:#76aaa2;background:#f4faf8;color:#236b61}
+@media(max-width:700px){.workflow-nav{display:grid;grid-template-columns:1fr;gap:6px}.workflow-nav button{text-align:left}}
