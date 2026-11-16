@@ -1,7 +1,7 @@
 // Inicialização do Firebase para o Sistema RiC.
 // Este arquivo apenas conecta os serviços; não migra nem altera dados locais.
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, addDoc, deleteDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp, writeBatch, runTransaction } from "https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -17,6 +17,8 @@ try {
   const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  // Mantém a sessão administrativa entre atualizações e reaberturas do navegador.
+  await setPersistence(auth, browserLocalPersistence);
   window.RiCFirebase = {
     app, auth, db,
     authApi: { onAuthStateChanged, signInWithEmailAndPassword, signOut },
