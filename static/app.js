@@ -173,16 +173,18 @@ render();
  const main=document.querySelector('main');
  if(!navHost||!main)return;
  const modules=[
-  ['identify','01','Identificação','Quem, o quê, onde e quando'],
-  ['omeka','02','Descrição Omeka S','Preparar itens e metadados'],
-  ['riccm','03','Descrição RiC-CM 1.0','Campos e correspondências'],
-  ['relation-manager','04','Cadastro de relações','Registrar e validar conexões'],
-  ['graph','05','Grafo de relações','Visualização da rede']
+  ['identify','01','Análise documental','Quem, o quê, onde e quando'],
+  ['omeka','02','Omeka S','Cadastro, ligações e grafo']
  ];
  const nav=document.createElement('div');nav.className='module-nav';
  nav.innerHTML='<div class="navlabel">MÓDULOS PRINCIPAIS</div>'+modules.map(m=>'<button class="nav module-link" data-page="'+m[0]+'"><span class="module-num">'+m[1]+'</span><span>'+m[2]+'</span></button>').join('');
  navHost.insertAdjacentElement('afterend',nav);
  nav.querySelectorAll('.nav[data-page]').forEach(button=>button.addEventListener('click',()=>page(button.dataset.page)));
+ // Etapas complementares ficam dentro do fluxo Omeka S, sem ocupar a navegação principal.
+ const workflowNav='<nav class="workflow-nav" aria-label="Etapas do cadastro"><button type="button" data-workflow-page="omeka">1 · Cadastro Omeka S</button><button type="button" data-workflow-page="relation-manager">2 · Validar ligações</button><button type="button" data-workflow-page="graph">3 · Grafo</button></nav>';
+ ['omeka','relation-manager','graph'].forEach(id=>{const host=document.getElementById(id);if(host)host.insertAdjacentHTML('afterbegin',workflowNav)});
+ document.querySelectorAll('[data-workflow-page]').forEach(b=>b.addEventListener('click',()=>window.page(b.dataset.workflowPage)));
+
  const insertBefore=document.querySelector('#overview');
  const section=(id,html)=>{const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=html;insertBefore.insertAdjacentElement('beforebegin',s)};
  section('relation-manager','<div class="toolbar"><div><h2>Cadastro de relações</h2><p>Registre vínculos entre entidades validadas e documente as evidências.</p></div></div><div id="graphRelationEditor" class="panel graph-editor"></div>');
@@ -372,6 +374,7 @@ render();
  // Atualiza contadores e fichas sempre que os módulos antigos renderizarem.
  const originalRender=render;render=function(){originalRender();renderWorkspace()};
  renderWorkspace();
+ window.page('identify');
 })();
 
 // Zera os dados locais deste aplicativo. A ação não pode ser desfeita.
