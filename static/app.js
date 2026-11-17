@@ -81,8 +81,8 @@ function mergeExtractedCandidates(incoming,sourceId){
 }
 async function saveValidatedEntityToCloud(entity){
  const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
- if(entity.status!=='Validada')return;
- const payload={id:entity.id,name:entity.name,type:entity.type||'Entidade',status:'Validada',source_id:entity.source_id||'',source_ids:entity.source_ids||[entity.source_id].filter(Boolean),mentions:Array.isArray(entity.mentions)?entity.mentions:[],source_excerpt:String(entity.source_excerpt||'').slice(0,1200),position:Number.isFinite(entity.position)?entity.position:null,updated_at:new Date().toISOString()};
+ if(entity.status!=='Validada'||entity.analysis_approved!==true)return;
+ const payload={id:entity.id,name:entity.name,type:entity.type||'Entidade',status:'Validada',analysis_approved:true,source_id:entity.source_id||'',source_ids:entity.source_ids||[entity.source_id].filter(Boolean),mentions:Array.isArray(entity.mentions)?entity.mentions:[],source_excerpt:String(entity.source_excerpt||'').slice(0,1200),position:Number.isFinite(entity.position)?entity.position:null,updated_at:new Date().toISOString()};
  await f.dbApi.setDoc(f.dbApi.doc(f.db,'entities',entity.id),payload,{merge:true});
 }
 async function saveValidatedSourceToCloud(source){
@@ -112,7 +112,7 @@ async function loadValidatedRecordsFromCloud(){
   f.dbApi.getDocs(f.dbApi.collection(f.db,'relations')),
   f.dbApi.getDocs(f.dbApi.collection(f.db,'sources'))
  ]);
- const cloudEntities=entitiesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.name&&x.status==='Validada');
+ const cloudEntities=entitiesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.name&&x.status==='Validada'&&x.analysis_approved===true);
  const validCloudEntityIds=new Set(cloudEntities.map(x=>x.id));
  const cloudRelations=relationsSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.subject&&x?.object&&x?.predicate&&x.status==='Validada'&&validCloudEntityIds.has(x.subject)&&validCloudEntityIds.has(x.object));
  const cloudSources=sourcesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x.status==='Validada');
@@ -122,13 +122,13 @@ async function loadValidatedRecordsFromCloud(){
  const relationMap=new Map(state.relations.map(x=>[x.id,x]));
  cloudRelations.forEach(x=>{const local=relationMap.get(x.id);if(local)Object.assign(local,x);else state.relations.push(x)});
  // Migra para a nuvem os registros já validados que ainda existiam somente neste navegador.
- for(const entity of state.entities.filter(x=>x.status==='Validada'))await saveValidatedEntityToCloud(entity);
+ for(const entity of state.entities.filter(x=>x.status==='Validada'&&x.analysis_approved===true))await saveValidatedEntityToCloud(entity);
  for(const relation of state.relations.filter(x=>x.status==='Validada'))await saveValidatedRelationToCloud(relation);
  saveState();
 }
 function renderGraphEditor(){
  const editor=$('#graphRelationEditor');if(!editor)return;
- const valid=state.entities.filter(e=>e.status==='Validada');
+ const valid=state.entities.filter(e=>e.status==='Validada'&&e.analysis_approved===true);
  const focused=valid.find(e=>e.id===relationFocusId)||null;
  if(!focused)relationFocusId=null;
  const validRelationRecords=state.relations.filter(r=>r.status==='Validada'&&valid.some(e=>e.id===r.subject)&&valid.some(e=>e.id===r.object));
@@ -179,7 +179,7 @@ function renderGraphEditor(){
 function drawGraph(){
  const host=$('#graphView');if(!host)return;
  // Somente entidades validadas entram no grafo. Relações precisam ligar dois nós validados.
- const all=state.entities.filter(n=>n.status==='Validada').map(n=>({...n}));
+ const all=state.entities.filter(n=>n.status==='Validada'&&n.analysis_approved===true).map(n=>({...n}));
  const byId=new Map(all.map(n=>[n.id,n]));
  const relations=state.relations.filter(e=>e.status==='Validada'&&byId.has(e.subject)&&byId.has(e.object));
  const degree=new Map(all.map(n=>[n.id,0]));
@@ -430,7 +430,7 @@ render();
     const view=ev.target.closest('[data-analysis-view]');if(view){window.__ricAnalysisExpanded=window.__ricAnalysisExpanded===view.dataset.analysisView?null:view.dataset.analysisView;renderWorkspace();return}
     const yes=ev.target.closest('[data-analysis-validate]'),del=ev.target.closest('[data-analysis-delete]'),btn=yes||del;if(!btn)return;
     const entity=state.entities.find(x=>x.id===(yes?yes.dataset.analysisValidate:del.dataset.analysisDelete));if(!entity)return;
-    const previous=entity.status;entity.status=yes?'Validada':'Excluída';if(!saveState()){entity.status=previous;return}
+    const previous=entity.status;entity.status=yes?'Validada':'Excluída';entity.analysis_approved=!!yes;if(!saveState()){entity.status=previous;return}
     window.__ricAnalysisExpanded=null;renderWorkspace();
     if(yes){try{await saveValidatedEntityToCloud(entity)}catch(err){alert('A informação foi validada localmente, mas não foi sincronizada na nuvem: '+(err.code||err.message))}}
    })}
@@ -615,7 +615,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  }
  async function publish(){
   const f=window.RiCFirebase,a=f.dbApi,d=f.db;
-  const validEntities=state.entities.filter(e=>e.status==='Validada'&&e.id&&e.name);
+  const validEntities=state.entities.filter(e=>e.status==='Validada'&&e.analysis_approved===true&&e.id&&e.name);
   const validIds=new Set(validEntities.map(e=>e.id));
   const rs=state.relations.filter(r=>r.status==='Validada'&&r.id&&r.subject&&r.object&&r.predicate&&validIds.has(r.subject)&&validIds.has(r.object));
   const linkedIds=new Set(rs.flatMap(r=>[r.subject,r.object]));
