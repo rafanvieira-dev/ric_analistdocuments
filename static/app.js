@@ -464,6 +464,7 @@ render();
  const extractOrientedEntities=(text,sid,orientation,legacyEntities)=>{
   const terms=[{name:orientation.main.name,type:orientation.main.category||'Pessoa',role:'Entidade principal'},...(orientation.main.variants||'').split(/[,;|\n]/).map(x=>({name:x.trim(),type:orientation.main.category||'Pessoa',role:'Variante da entidade principal'}))];
   for(const target of orientation.targets||[]){for(const term of [target.terms||'',target.notes||''].flatMap(v=>v.split(/[,;|\n]/)).map(x=>x.trim()).filter(Boolean))terms.push({name:term,type:target.category||'Entidade',role:'Critério da orientação'});}
+  const command=String(orientation.command||'');const commandTerms=[...command.matchAll(/[“\"']([^”\"']{2,100})[”\"']/g)].map(m=>m[1]),...command.split(/[;|\n]/).map(x=>x.trim()).filter(x=>x.length>=3&&x.length<=80);for(const term of commandTerms)terms.push({name:term,type:'Critério da orientação',role:'Comando da orientação'});
   const found=[],seen=new Set(),lower=text.toLocaleLowerCase('pt-BR');
   for(const item of terms){const term=String(item.name||'').trim();if(term.length<2)continue;const q=term.toLocaleLowerCase('pt-BR');let at=0,count=0;
    while((at=lower.indexOf(q,at))>=0&&count++<100){const before=at===0?'':text[at-1],after=text[at+term.length]||'';if(/[\p{L}\p{N}_]/u.test(before)||/[\p{L}\p{N}_]/u.test(after)){at+=q.length;continue}
