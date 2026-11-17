@@ -503,8 +503,8 @@ async function clearFirestoreCollection(f,name){
 }
 if(resetButton)resetButton.onclick=async()=>{
  if(resetButton.disabled)return;
- if(!confirm('ATENÇÃO: serão apagados do Firebase os dados de trabalho do RiC (fontes, entidades, relações e conteúdo público), além dos dados locais deste navegador. As contas e os perfis da coleção users NÃO serão excluídos. Exporte um backup antes. Deseja continuar?'))return;
- if(!confirm('Confirma definitivamente zerar os dados do Sistema RiC no Firebase? As contas de acesso serão preservadas.'))return;
+ const confirmation=prompt('ATENÇÃO: esta ação apagará todas as informações do aplicativo Sistema RiC, incluindo fontes, entidades, relações, descrições, notas e dados publicados. Essa exclusão não poderá ser desfeita.\n\nPara confirmar, digite a palavra zerar:');
+ if(confirmation===null||confirmation.trim().toLocaleLowerCase('pt-BR')!=='zerar')return;
  resetButton.disabled=true;resetButton.textContent='Zerando…';
  try{
   const f=await requireAdminForReset();
