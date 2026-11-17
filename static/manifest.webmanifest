@@ -1,7 +1,7 @@
 {
- "name":"Sistema RiC — Arquivo em Contexto",
+ "name":"RiC — Sistema de Auxílio à Descrição",
  "short_name":"Sistema RiC",
- "description":"Sistema local de identificação, descrição arquivística e relações RiC-CM.",
+ "description":"Sistema de auxílio à descrição arquivística, pesquisa orientada e relações RiC-CM.",
  "lang":"pt-BR",
  "start_url":"/",
  "scope":"/",
