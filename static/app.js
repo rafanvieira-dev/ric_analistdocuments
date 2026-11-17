@@ -723,7 +723,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 const K='ric_guided_research_v1', $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), uid=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
 const cats=[['Pessoa','Person'],['Grupo','Group'],['Organização','Corporate Body'],['Local','Place'],['Evento','Event'],['Atividade','Activity'],['Data / período','Date'],['Documento','Record'],['Coisa / objeto','Thing']];
 let db=[];try{db=JSON.parse(localStorage.getItem(K)||'[]')}catch(e){}if(!Array.isArray(db))db=[];
-let aid=localStorage.getItem('ric_guided_active_id')||null, editing=null, viewing=null;
+let aid=localStorage.getItem('ric_guided_active_id')||null, editing=null, viewing=null, draft=null;
 const save=()=>{try{localStorage.setItem(K,JSON.stringify(db));return true}catch(e){alert('Armazenamento local cheio. Exporte um backup e reduza o conteúdo.');return false}};
 const host=document.querySelector('.sidebar .module-nav');if(!host)return;
 const nav=document.createElement('button');nav.className='nav module-link';nav.innerHTML='<span class="module-num">01</span><span>Orientação</span>';nav.dataset.page='guided-search';host.insertBefore(nav,host.querySelector('.nav[data-page]'));host.querySelectorAll('.nav[data-page] .module-num').forEach((el,i)=>el.textContent=String(i+1).padStart(2,'0'));
@@ -753,14 +753,14 @@ function renderFields(p,readonly=false){
 function editor(){
  const el=$('grEditor');
  if(viewing){const p=db.find(x=>x.id===viewing);if(!p){viewing=null;return editor()}el.innerHTML='<div class="panelhead"><h3>Visualizar item</h3><button class="btn ghost" id="grBack">Voltar à lista</button></div><h3 class="gr-view-title">'+esc(p.name||p.main?.name||'Item sem título')+'</h3>'+renderFields(p,true)+'<div class="gor-actions"><button class="btn primary" id="grViewEdit">Editar item</button></div>';$('grBack').onclick=()=>{viewing=null;editor()};$('grViewEdit').onclick=()=>{editing=p.id;viewing=null;editor()};return}
- const p=editing?db.find(x=>x.id===editing):null;
+ const p=editing?(db.find(x=>x.id===editing)||draft):null;
  if(!p){el.innerHTML='<div class="gr-empty"><p class="hint">Selecione um item para visualizar ou editar, ou adicione um novo item.</p><button class="btn primary" id="grStartAdd">＋ Adicionar item</button></div>';$('grStartAdd').onclick=()=>startNew();return}
  el.innerHTML='<div class="panelhead"><h3>Editar item</h3><button class="btn ghost" id="grCancel">Cancelar</button></div>'+renderFields(p)+'<p id="grMsg" class="message"></p><div class="gor-actions"><button class="btn primary" id="grSaveItem">Salvar item</button></div>';
  const capture=()=>{p.name=$('grName').value.trim();p.main={category:$('grMainCat').value,name:$('grMainName').value.trim(),variants:$('grMainVars').value,notes:$('grMainNotes').value};p.command=$('grCommand').value;p.targets=[...$('grTargetList').querySelectorAll('[data-target]:checked')].map(ch=>({category:ch.dataset.target,terms:$('grTargetList').querySelector('[data-terms="'+ch.dataset.target+'"]').value,notes:$('grTargetList').querySelector('[data-notes="'+ch.dataset.target+'"]').value}));return p};
- $('grCancel').onclick=()=>{editing=null;editor()};
- $('grSaveItem').onclick=()=>{capture();if(!p.name)return $('grMsg').textContent='Informe um nome para o item.';if(!p.main.name)return $('grMsg').textContent='Informe a entidade ou assunto principal.';if(!p.targets.length)return $('grMsg').textContent='Selecione pelo menos uma categoria de informação.';if(!db.some(x=>x.id===p.id))db.unshift(p);if(!save())return;aid=p.id;localStorage.setItem('ric_guided_active_id',aid);editing=null;viewing=p.id;list();editor()};
+ $('grCancel').onclick=()=>{editing=null;draft=null;editor()};
+ $('grSaveItem').onclick=()=>{capture();if(!p.name)return $('grMsg').textContent='Informe um nome para o item.';if(!p.main.name)return $('grMsg').textContent='Informe a entidade ou assunto principal.';if(!p.targets.length)return $('grMsg').textContent='Selecione pelo menos uma categoria de informação.';if(!db.some(x=>x.id===p.id))db.unshift(p);if(!save())return;draft=null;aid=p.id;localStorage.setItem('ric_guided_active_id',aid);editing=null;viewing=p.id;list();editor()};
 }
-function startNew(){const p=blank();db.unshift(p);editing=p.id;viewing=null;aid=p.id;localStorage.setItem('ric_guided_active_id',aid);if(!save())return;list();editor()}
+function startNew(){draft=blank();editing=draft.id;viewing=null;editor()}
 $('grNew').onclick=startNew;
 list();if(!aid||!db.some(x=>x.id===aid))aid=db[0]?.id||null;if(aid)localStorage.setItem('ric_guided_active_id',aid);editor();
 })();
