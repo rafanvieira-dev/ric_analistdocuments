@@ -543,7 +543,7 @@ if(resetButton)resetButton.onclick=async()=>{
   for(const key of Object.keys(localStorage)){if(key.startsWith('ric_'))localStorage.removeItem(key)}
   localStorage.removeItem(KEY);localStorage.removeItem('ric_knowledge_local_v1');
   state=emptyState();saveState();
-  if(typeof db!=='undefined'&&Array.isArray(db)){db=[];localStorage.removeItem('ric_guided_research_v1');localStorage.removeItem('ric_guided_active_id')}
+  window.RiCResetGuidance?.();
   relationFocusId=null;relationListPage=0;relationSearch='';relationTypeFilter='';
   render();page('identify');
   alert('Sistema RiC zerado. '+removed+' registro(s) removido(s) do Firebase. Contas e perfis de acesso foram preservados.');
@@ -756,6 +756,7 @@ function list(){
  el.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{const p=db.find(x=>x.id===b.dataset.delete);if(!p||!confirm('Excluir o item "'+(p.name||p.main?.name||'')+'" e seus critérios?'))return;db=db.filter(x=>x.id!==p.id);if(aid===p.id){aid=db[0]?.id||null;localStorage.setItem('ric_guided_active_id',aid||'')}if(!save())return;editing=null;viewing=null;list();editor()});
 }
 function blank(){return {id:uid(),name:'',main:{category:'Pessoa',name:'',variants:'',notes:''},targets:[],command:'',docs:[],results:[]}}
+window.RiCResetGuidance=()=>{db=[];aid=null;editing=null;viewing=null;localStorage.removeItem(K);localStorage.removeItem('ric_guided_active_id');list();editor()};
 function renderFields(p,readonly=false){
  p.main=p.main||{category:'Pessoa',name:'',variants:'',notes:''};p.targets=p.targets||[];
  const selected=new Set(p.targets.map(x=>x.category));
