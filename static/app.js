@@ -454,14 +454,14 @@ render();
  };
  const loadRiCOrientations=()=>{try{const rows=JSON.parse(localStorage.getItem('ric_guided_research_v1')||'[]');return Array.isArray(rows)?rows.filter(p=>p&&p.main&&p.main.name):[]}catch(e){return []}};
  const extractOrientedEntities=(text,sid,orientation,legacyEntities)=>{
-  const terms=[{name:orientation.main.name,type:orientation.main.category||'Pessoa',role:'Entidade principal'},...(orientation.main.variants||'').split(/[,;|\\n]/).map(x=>({name:x.trim(),type:orientation.main.category||'Pessoa',role:'Variante da entidade principal'}))];
-  for(const target of orientation.targets||[])for(const term of (target.terms||'').split(/[,;|\\n]/).map(x=>x.trim()).filter(Boolean))terms.push({name:term,type:target.category||'Entidade',role:'Critério da orientação'});
+  const terms=[{name:orientation.main.name,type:orientation.main.category||'Pessoa',role:'Entidade principal'},...(orientation.main.variants||'').split(/[,;|\n]/).map(x=>({name:x.trim(),type:orientation.main.category||'Pessoa',role:'Variante da entidade principal'}))];
+  for(const target of orientation.targets||[])for(const term of (target.terms||'').split(/[,;|\n]/).map(x=>x.trim()).filter(Boolean))terms.push({name:term,type:target.category||'Entidade',role:'Critério da orientação'});
   const found=[],seen=new Set(),lower=text.toLocaleLowerCase('pt-BR');
   for(const item of terms){const term=String(item.name||'').trim();if(term.length<2)continue;const q=term.toLocaleLowerCase('pt-BR');let at=0,count=0;
    while((at=lower.indexOf(q,at))>=0&&count++<100){const before=at===0?'':text[at-1],after=text[at+term.length]||'';if(/[\p{L}\p{N}_]/u.test(before)||/[\p{L}\p{N}_]/u.test(after)){at+=q.length;continue}
     const key=item.type+'|'+q+'|'+at;if(seen.has(key)){at+=q.length;continue}seen.add(key);
     const excerpt=text.slice(Math.max(0,at-260),Math.min(text.length,at+term.length+340)).replace(/\s+/g,' ');
-    const pageMatch=text.slice(0,at).match(/\[Página (\d+)\]/g),page=pageMatch?.length?pageMatch[pageMatch.length-1].match(/\\d+/)?.[0]:null;
+    const pageMatch=text.slice(0,at).match(/\[Página (\d+)\]/g),page=pageMatch?.length?pageMatch[pageMatch.length-1].match(/\d+/)?.[0]:null;
     found.push({id:id(),name:term,type:item.type,source_id:sid,source_excerpt:excerpt,position:at,page,confidence:'Média',status:'Pendente',evidence:item.role+' localizada conforme a orientação “'+(orientation.name||'Pesquisa orientada')+'”. Conferir o contexto e validar a identificação.',variants:[],orientation_id:orientation.id,orientation_name:orientation.name});
     at+=q.length;
    }
