@@ -481,18 +481,49 @@ render();
  window.page('identify');
 })();
 
-// Zera os dados locais deste aplicativo. A ação não pode ser desfeita.
+// Zera os dados de trabalho no Firebase e neste navegador, sem tocar nas contas de usuários.
 const resetButton=$('#resetApp');
-if(resetButton)resetButton.onclick=()=>{
- if(!confirm('ATENÇÃO: isso apagará fontes, entidades, relações, descrições, notas e a base de conhecimento deste navegador. Exporte um backup antes. Deseja continuar?'))return;
- if(!confirm('Confirma definitivamente apagar todos os dados locais do Sistema RiC?'))return;
- localStorage.removeItem(KEY);
- localStorage.removeItem('ric_knowledge_local_v1');
- state=emptyState();
- saveState();
- render();
- page('identify');
- alert('Dados do aplicativo apagados. Sua sessão administrativa foi mantida.');
+async function requireAdminForReset(){
+ const f=window.RiCFirebase,u=f?.auth?.currentUser;
+ if(!f||!u)throw new Error('Entre com uma conta administrativa antes de zerar os dados.');
+ const profile=await f.dbApi.getDoc(f.dbApi.doc(f.db,'users',u.uid));
+ const data=profile.exists()?profile.data():null;
+ if(!data||data.active!==true||data.role!=='admin')throw new Error('Ação permitida somente para administrador ativo.');
+ return f;
+}
+async function clearFirestoreCollection(f,name){
+ const snap=await f.dbApi.getDocs(f.dbApi.collection(f.db,name));
+ const docs=snap.docs||[];
+ for(let i=0;i<docs.length;i+=450){
+  const batch=f.dbApi.writeBatch(f.db);
+  docs.slice(i,i+450).forEach(item=>batch.delete(item.ref));
+  await batch.commit();
+ }
+ return docs.length;
+}
+if(resetButton)resetButton.onclick=async()=>{
+ if(resetButton.disabled)return;
+ if(!confirm('ATENÇÃO: serão apagados do Firebase os dados de trabalho do RiC (fontes, entidades, relações e conteúdo público), além dos dados locais deste navegador. As contas e os perfis da coleção users NÃO serão excluídos. Exporte um backup antes. Deseja continuar?'))return;
+ if(!confirm('Confirma definitivamente zerar os dados do Sistema RiC no Firebase? As contas de acesso serão preservadas.'))return;
+ resetButton.disabled=true;resetButton.textContent='Zerando…';
+ try{
+  const f=await requireAdminForReset();
+  const collections=['entities','relations','sources','public_entities','public_relations'];
+  const removed={};
+  for(const name of collections)removed[name]=await clearFirestoreCollection(f,name);
+  localStorage.removeItem(KEY);
+  localStorage.removeItem('ric_knowledge_local_v1');
+  state=emptyState();
+  saveState();
+  render();
+  page('identify');
+  const total=Object.values(removed).reduce((sum,n)=>sum+n,0);
+  alert('Sistema RiC zerado no Firebase e neste navegador. '+total+' registros removidos. Contas e perfis de usuários preservados.');
+ }catch(error){
+  alert('Não foi possível concluir a limpeza: '+(error.code||error.message)+'. Se a exclusão foi parcialmente concluída, os dados restantes podem ser apagados ao repetir a operação.');
+ }finally{
+  resetButton.disabled=false;resetButton.textContent='Zerar aplicativo';
+ }
 };
 
 /* Instalação como aplicativo (PWA) e cache básico da interface */
