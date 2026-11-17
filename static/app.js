@@ -453,7 +453,7 @@ render();
   return {blocks,pages:pages.length};
  };
  const loadRiCOrientations=()=>{try{const rows=JSON.parse(localStorage.getItem('ric_guided_research_v1')||'[]');return Array.isArray(rows)?rows.filter(p=>p&&p.main&&p.main.name):[]}catch(e){return []}};
- const extractOrientedEntities=(text,sid,orientation)=>{
+ const extractOrientedEntities=(text,sid,orientation,legacyEntities)=>{
   const terms=[{name:orientation.main.name,type:orientation.main.category||'Pessoa',role:'Entidade principal'},...(orientation.main.variants||'').split(/[,;|\\n]/).map(x=>({name:x.trim(),type:orientation.main.category||'Pessoa',role:'Variante da entidade principal'}))];
   for(const target of orientation.targets||[])for(const term of (target.terms||'').split(/[,;|\\n]/).map(x=>x.trim()).filter(Boolean))terms.push({name:term,type:target.category||'Entidade',role:'Critério da orientação'});
   const found=[],seen=new Set(),lower=text.toLocaleLowerCase('pt-BR');
@@ -466,6 +466,15 @@ render();
     at+=q.length;
    }
   }
+  const selected=new Set((orientation.targets||[]).map(t=>t.category));
+  const typeMap={'Pessoa':'Pessoa','Grupo':'Grupo','Organização':'Organização','Local':'Local','Evento':'Evento','Atividade':'Atividade','Data / período':'Data','Documento':'Record','Coisa / objeto':'Thing'};
+  const mainNames=[orientation.main.name,...(orientation.main.variants||'').split(/[,;|\n]/)].map(x=>String(x||'').trim().toLocaleLowerCase('pt-BR')).filter(Boolean);
+  const mainPositions=[];for(const name of mainNames){let at=0;while((at=lower.indexOf(name,at))>=0){mainPositions.push(at);at+=Math.max(1,name.length)}}
+  for(const entity of legacyEntities||[]){const category=[...selected].find(cat=>typeMap[cat]===entity.type);if(!category)continue;
+   if(!mainPositions.some(pos=>Math.abs(pos-entity.position)<=900))continue;
+   const key=entity.type+'|'+entity.name.toLocaleLowerCase('pt-BR')+'|'+entity.position;if(seen.has(key))continue;seen.add(key);
+   found.push({...entity,id:id(),orientation_id:orientation.id,orientation_name:orientation.name,evidence:'Elemento da categoria '+category+' identificado no contexto da entidade principal, conforme a orientação. Conferir a evidência e validar manualmente.'});
+  }
   return found;
  };
  const processModuleFile=async f=>{if(!f)return;const msg=$('#moduleMsg');msg.textContent='Iniciando processamento…';$('#downloadOcrPdf').hidden=true;showProcess('Preparando arquivo',1,'O arquivo será processado localmente neste navegador.');
@@ -475,7 +484,7 @@ render();
   else if(['jpg','jpeg','png','webp'].includes(ext)){if(!window.Tesseract)throw Error('Biblioteca OCR não carregou. Recarregue a página.');showProcess('Etapa 1 de 3 · Preparando imagem',8,'Abrindo imagem…');const result=await Tesseract.recognize(f,'por',{logger:m=>{if(m.status==='recognizing text')showProcess('Etapa 2 de 3 · OCR da imagem',15+(m.progress||0)*65,'Reconhecendo texto em português…')}});const text=result.data.text.trim();blocks=text?text.split(/\\n+/).map(x=>x.trim()).filter(Boolean):[]}
   else {showProcess('Etapa 1 de 2 · Lendo documento',20,'Extraindo texto do arquivo…');blocks=await readFile(f)}
   showProcess('Analisando documento · identificando menções',92,'Extraindo candidatos de pessoas, organizações, locais, eventos e datas…');
-  const text=blocks.join('\\n'),sid=id(),orientations=loadRiCOrientations(),activeOrientation=orientations[0]||null,legacyEntities=extractEntities(text,sid),orientedEntities=activeOrientation?extractOrientedEntities(text,sid,activeOrientation):[],entities=[...legacyEntities,...orientedEntities].filter((e,i,a)=>a.findIndex(x=>x.source_id===e.source_id&&x.type===e.type&&x.name.toLocaleLowerCase('pt-BR')===e.name.toLocaleLowerCase('pt-BR')&&x.position===e.position)===i);
+  const text=blocks.join('\\n'),sid=id(),orientations=loadRiCOrientations(),activeOrientation=orientations[0]||null,legacyEntities=extractEntities(text,sid),orientedEntities=activeOrientation?extractOrientedEntities(text,sid,activeOrientation,legacyEntities):[],entities=[...legacyEntities,...orientedEntities].filter((e,i,a)=>a.findIndex(x=>x.source_id===e.source_id&&x.type===e.type&&x.name.toLocaleLowerCase('pt-BR')===e.name.toLocaleLowerCase('pt-BR')&&x.position===e.position)===i);
   const source={id:sid,filename:f.name,title:f.name.replace(/\\.[^.]+$/,''),kind:'Documento analisado',status:'Em análise',text,blocks,entity_count:entities.length,created_at:new Date().toLocaleString('pt-BR'),ocr:['jpg','jpeg','png','webp','tif','tiff'].includes(ext),original_format:ext,derived_pdf:ext==='tif'||ext==='tiff'?'PDF pesquisável gerado':''};
   state.sources.push(source);state.entities.push(...entities);
   if(saveState()){render();renderWorkspace();omFillSelects();showProcess('Concluído · análise finalizada',100,(tiffPages?tiffPages+' páginas convertidas para PDF. ':'')+blocks.length+' blocos; '+legacyEntities.length+' candidatos das regras gerais e '+orientedEntities.length+' ocorrências localizadas pela orientação '+(activeOrientation?'“'+activeOrientation.name+'”':'(nenhuma orientação configurada)')+'.');msg.textContent=blocks.length?(activeOrientation?'Documento analisado com os critérios da orientação “'+activeOrientation.name+'” e regras gerais. Confira as evidências e valide manualmente.':'Documento analisado pelas regras gerais. Cadastre uma orientação para direcionar a próxima análise.'):'Arquivo convertido, mas não foi encontrado texto legível. Será necessária revisão manual.'}
