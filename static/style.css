@@ -635,3 +635,18 @@ button:disabled{cursor:not-allowed}
 .analysis-state.valid{color:#26724c}
 .analysis-empty{padding:22px 10px;text-align:center;color:var(--muted,#71808a);font-size:13px}
 @media(max-width:640px){.analysis-item-main{align-items:flex-start;flex-direction:column}.analysis-item-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}}
+
+/* Orientação: cadastro e listagem minimalistas */
+.gr-item-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #e9eef1}
+.gr-item-info{display:grid;gap:3px;min-width:0}
+.gr-item-info b{font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.gr-item-info small{font-size:11px;color:#778999}
+.gr-item-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.gr-item-actions .mini{font-size:11px;padding:6px 8px}
+.gr-item-actions .danger{color:#a33b3b;border-color:#e5caca;background:transparent}
+.gr-empty{padding:22px 8px;text-align:center}
+.gr-view-title{margin:8px 0 14px;font-size:17px}
+.gr-target{padding:8px 0;border-bottom:1px solid #e9eef1}
+.gr-target .gor-label{margin:8px 0}
+.gr-target .gor-check{margin:4px 0}
+@media(max-width:700px){.gr-item-row{align-items:flex-start;flex-direction:column}.gr-item-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}.gr-item-actions .mini{min-height:36px;padding:6px 4px}.gr-item-row .gr-item-info{width:100%}}
