@@ -23,7 +23,7 @@ def load_db():
     if DB.exists():
         try: return json.loads(DB.read_text(encoding='utf-8'))
         except (ValueError,OSError): pass
-    return {'project':'Estácio 100 Anos','sources':[],'entities':[],'relations':[],'notes':[]}
+    return {'project':'Sistema RiC','sources':[],'entities':[],'relations':[],'notes':[]}
 
 def save_db(data):
     with LOCK: DB.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
