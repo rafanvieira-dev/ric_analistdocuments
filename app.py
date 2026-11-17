@@ -40,22 +40,8 @@ def read_docx(path):
     return blocks
 
 def extract_entities(text, source_id):
-    found=[]; lexicons=[('Pessoa',PEOPLE),('Organização',ORGS),('Local',PLACES),('Evento',EVENTS)]
-    for kind,terms in lexicons:
-        for term in terms:
-            pattern=re.compile(r'(?<![\wÀ-ÿ])'+re.escape(term)+r'(?![\wÀ-ÿ])',re.I)
-            for match in list(pattern.finditer(text))[:5]:
-                a=max(0,match.start()-190); b=min(len(text),match.end()+220)
-                found.append({'id':str(uuid.uuid4()),'name':term,'type':kind,'source_id':source_id,'source_excerpt':text[a:b].replace('\n',' '),'position':match.start(),'confidence':'Média' if kind!='Evento' else 'Baixa','status':'Pendente','evidence':'Menção literal encontrada; validar identidade, papel e contexto.','variants':[]})
-    date_re=r'(?<!\d)(?:\d{1,2}/\d{1,2}/\d{4}|\d{4}|década de \d{4}|final da década de \d{4}|início da década de \d{4})(?!\d)'
-    for m in re.finditer(date_re,text,re.I):
-        a=max(0,m.start()-180); b=min(len(text),m.end()+200)
-        found.append({'id':str(uuid.uuid4()),'name':m.group(0),'type':'Data','source_id':source_id,'source_excerpt':text[a:b].replace('\n',' '),'position':m.start(),'confidence':'Média','status':'Pendente','evidence':'Expressão temporal localizada. Classificar a natureza da data.','variants':[]})
-    out=[]; seen=set()
-    for e in sorted(found,key=lambda x:x['position']):
-        key=(e['type'],e['name'].casefold())
-        if key not in seen: seen.add(key); out.append(e)
-    return out
+    # Extrator genérico legado desativado: a análise deve obedecer a uma orientação explícita.
+    return []
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self,*args,**kwargs): super().__init__(*args,directory=str(STATIC),**kwargs)
