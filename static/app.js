@@ -96,7 +96,7 @@ async function saveValidatedRelationToCloud(relation){
  const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
  if(relation.status!=='Validada')return;
  const endpoints=[relation.subject,relation.object].map(entityId=>state.entities.find(e=>e.id===entityId));
- if(endpoints.length!==2||endpoints.some(entity=>!entity||entity.status!=='Validada'))throw new Error('Uma relação só pode ser sincronizada quando as duas entidades estiverem validadas.');
+ if(endpoints.length!==2||endpoints.some(entity=>!entity||entity.status!=='Validada'||entity.analysis_approved!==true))throw new Error('Uma relação só pode ser sincronizada quando as duas entidades estiverem validadas.');
  for(const entity of endpoints)await saveValidatedEntityToCloud(entity);
  const payload={id:relation.id,subject:relation.subject,predicate:relation.predicate,object:relation.object,evidence:relation.evidence||'',source_id:relation.source_id||'',status:'Validada',updated_at:new Date().toISOString()};
  await f.dbApi.setDoc(f.dbApi.doc(f.db,'relations',relation.id),payload,{merge:true});
