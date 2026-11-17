@@ -6,7 +6,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function loadState(){try{return {...emptyState(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){return emptyState()}}
 function saveState(){try{localStorage.setItem(KEY,JSON.stringify(state));return true}catch(e){alert('O armazenamento do navegador está cheio. Exporte um backup e remova fontes antigas ou reduza o conteúdo.');return false}}
 function id(){return crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2)}
-function page(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id===id));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===id));$('#pagetitle').textContent=({overview:'Visão geral',sources:'Fontes e documentos',entities:'Entidades identificadas',relations:'Rede de relações',quality:'Controle de qualidade',identify:'Análise',omeka:'Descrição Omeka S',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações','relation-manager':'Cadastro de relações'})[id]||'Visão geral';if(id==='graph')drawGraph()}
+function page(id){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id===id));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page===id));$('#pagetitle').textContent=({overview:'Visão geral',sources:'Fontes e documentos',entities:'Entidades identificadas',relations:'Rede de relações',quality:'Controle de qualidade',identify:'Identificação de entidades',omeka:'Descrição Omeka S',riccm:'Descrição RiC-CM 1.0',graph:'Grafo de relações','relation-manager':'Cadastro de relações'})[id]||'Visão geral';if(id==='graph')drawGraph()}
 document.querySelectorAll('.nav[data-page]').forEach(b=>b.onclick=()=>page(b.dataset.page));
 $('#goUpload').onclick=()=>$('#uploadPanel').scrollIntoView({behavior:'smooth'});
 $('#newUpload').onclick=()=>{page('overview');$('#uploadPanel').scrollIntoView({behavior:'smooth'})};
@@ -16,7 +16,10 @@ const PEOPLE=['Rubens Barcelos','Mano Rubens','Ismael Silva','Bide','Brancura','
 const ORGS=['União Faz a Força','Deixa Falar','Escola de Samba Estácio de Sá','GRES Estácio de Sá','Unidos de São Carlos','União do Estácio de Sá','União das Cores','Portela','Império Serrano','Mangueira','Vizinha Faladeira','Funarte','Instituto Moreira Salles','IMS','UFRJ','Pallas','Prefeitura do Rio de Janeiro','Jornal do Brasil','Biblioteca Nacional','Arquivo Nacional','LIESA'];
 const PLACES=['Estácio','Pilares','Praça Onze','Largo do Estácio','Morro de São Carlos','Cidade Nova','Pequena África','Praça Quinze','Avenida Estácio de Sá','Rua do Estácio','Rua Machado Coelho','Beco D. Paulina','Oswaldo Cruz','Mangueira','Santo Cristo','Rio de Janeiro'];
 const EVENTS=['primeiro desfile do Bloco Deixa Falar','criação do Bloco Deixa Falar','fundação da Deixa Falar','criação do Samba de Sambar','fim do Rancho Deixa Falar','fusão da Deixa Falar e União das Cores'];
-function extractEntities(){return [];}
+function extractEntities(text,sid){let found=[],lex=[['Pessoa',PEOPLE],['Organização',ORGS],['Grupo',['Deixa Falar','União Faz a Força','União das Cores','Unidos de São Carlos']],['Local',PLACES],['Evento',EVENTS],['Atividade',['desfile','composição','gravação','ensaio','fundação','organização']],['Thing',['samba','partitura','fotografia','disco','gravação']],['Record',['ata','estatuto','programa','cartaz','fotografia','documento']]];
+ for(const [type,terms] of lex)for(const term of terms){const re=new RegExp('(?<![\\wÀ-ÿ])'+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\wÀ-ÿ])','ig');let m,n=0;while((m=re.exec(text))&&n++<5){found.push({id:id(),name:term,type,source_id:sid,source_excerpt:text.slice(Math.max(0,m.index-190),Math.min(text.length,m.index+term.length+220)).replace(/\s+/g,' '),position:m.index,confidence:type==='Evento'?'Baixa':'Média',status:'Pendente',evidence:'Menção literal encontrada; validar identidade, papel e contexto.',variants:[]})}}
+ const dr=/(?<!\d)(?:\d{1,2}\/\d{1,2}\/\d{4}|\d{4}|década de \d{4}|final da década de \d{4}|início da década de \d{4})(?!\d)/gi;let m;while((m=dr.exec(text)))found.push({id:id(),name:m[0],type:'Data',source_id:sid,source_excerpt:text.slice(Math.max(0,m.index-180),Math.min(text.length,m.index+m[0].length+200)).replace(/\s+/g,' '),position:m.index,confidence:'Média',status:'Pendente',evidence:'Expressão temporal localizada. Classificar a natureza da data.',variants:[]});
+ const seen=new Set();return found.sort((a,b)=>a.position-b.position).filter(e=>{let k=e.type+'|'+e.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true})}
 async function readFile(file){const ext=file.name.split('.').pop().toLowerCase();if(ext==='docx'){if(!window.mammoth)throw Error('Biblioteca DOCX não carregou. Atualize a página e tente novamente.');const r=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});return r.value.split(/\n+/).map(x=>x.trim()).filter(Boolean)}
  if(ext==='pdf'){if(!window.pdfjsLib)throw Error('Biblioteca PDF não carregou. Atualize a página e tente novamente.');pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let blocks=[];for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i),c=await p.getTextContent(),t=c.items.map(x=>x.str).join(' ').trim();if(t)blocks.push('[Página '+i+'] '+t)}if(!blocks.length)throw Error('Este PDF parece digitalizado ou não contém texto selecionável. OCR ainda não está disponível.');return blocks}
  throw Error('Formato não suportado. Envie DOCX ou PDF.') }
@@ -81,8 +84,8 @@ function mergeExtractedCandidates(incoming,sourceId){
 }
 async function saveValidatedEntityToCloud(entity){
  const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
- if(entity.status!=='Validada'||entity.analysis_approved!==true)return;
- const payload={id:entity.id,name:entity.name,type:entity.type||'Entidade',status:'Validada',analysis_approved:true,source_id:entity.source_id||'',source_ids:entity.source_ids||[entity.source_id].filter(Boolean),mentions:Array.isArray(entity.mentions)?entity.mentions:[],source_excerpt:String(entity.source_excerpt||'').slice(0,1200),position:Number.isFinite(entity.position)?entity.position:null,updated_at:new Date().toISOString()};
+ if(entity.status!=='Validada')return;
+ const payload={id:entity.id,name:entity.name,type:entity.type||'Entidade',status:'Validada',source_id:entity.source_id||'',source_ids:entity.source_ids||[entity.source_id].filter(Boolean),mentions:Array.isArray(entity.mentions)?entity.mentions:[],source_excerpt:String(entity.source_excerpt||'').slice(0,1200),position:Number.isFinite(entity.position)?entity.position:null,updated_at:new Date().toISOString()};
  await f.dbApi.setDoc(f.dbApi.doc(f.db,'entities',entity.id),payload,{merge:true});
 }
 async function saveValidatedSourceToCloud(source){
@@ -95,9 +98,7 @@ async function saveValidatedSourceToCloud(source){
 async function saveValidatedRelationToCloud(relation){
  const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
  if(relation.status!=='Validada')return;
- const endpoints=[relation.subject,relation.object].map(entityId=>state.entities.find(e=>e.id===entityId));
- if(endpoints.length!==2||endpoints.some(entity=>!entity||entity.status!=='Validada'||entity.analysis_approved!==true))throw new Error('Uma relação só pode ser sincronizada quando as duas entidades estiverem validadas.');
- for(const entity of endpoints)await saveValidatedEntityToCloud(entity);
+ for(const entityId of [relation.subject,relation.object]){const entity=state.entities.find(e=>e.id===entityId);if(entity?.status==='Validada')await saveValidatedEntityToCloud(entity)}
  const payload={id:relation.id,subject:relation.subject,predicate:relation.predicate,object:relation.object,evidence:relation.evidence||'',source_id:relation.source_id||'',status:'Validada',updated_at:new Date().toISOString()};
  await f.dbApi.setDoc(f.dbApi.doc(f.db,'relations',relation.id),payload,{merge:true});
 }
@@ -112,9 +113,8 @@ async function loadValidatedRecordsFromCloud(){
   f.dbApi.getDocs(f.dbApi.collection(f.db,'relations')),
   f.dbApi.getDocs(f.dbApi.collection(f.db,'sources'))
  ]);
- const cloudEntities=entitiesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.name&&x.status==='Validada'&&x.analysis_approved===true);
- const validCloudEntityIds=new Set(cloudEntities.map(x=>x.id));
- const cloudRelations=relationsSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.subject&&x?.object&&x?.predicate&&x.status==='Validada'&&validCloudEntityIds.has(x.subject)&&validCloudEntityIds.has(x.object));
+ const cloudEntities=entitiesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.name&&x.status==='Validada');
+ const cloudRelations=relationsSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.subject&&x?.object&&x?.predicate&&x.status==='Validada');
  const cloudSources=sourcesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x.status==='Validada');
  cloudSources.forEach(x=>{const local=state.sources.find(s=>s.id===x.id);if(local)Object.assign(local,{status:'Validada',mentions:Array.isArray(x.mentions)?x.mentions:[],mention_count:Number(x.mention_count)||0,validated_at:x.validated_at});else state.sources.push({...x,text:'',blocks:[],entity_count:Number(x.mention_count)||0})});
  const entityMap=new Map(state.entities.map(x=>[x.id,x]));
@@ -122,18 +122,17 @@ async function loadValidatedRecordsFromCloud(){
  const relationMap=new Map(state.relations.map(x=>[x.id,x]));
  cloudRelations.forEach(x=>{const local=relationMap.get(x.id);if(local)Object.assign(local,x);else state.relations.push(x)});
  // Migra para a nuvem os registros já validados que ainda existiam somente neste navegador.
- for(const entity of state.entities.filter(x=>x.status==='Validada'&&x.analysis_approved===true))await saveValidatedEntityToCloud(entity);
+ for(const entity of state.entities.filter(x=>x.status==='Validada'))await saveValidatedEntityToCloud(entity);
  for(const relation of state.relations.filter(x=>x.status==='Validada'))await saveValidatedRelationToCloud(relation);
  saveState();
 }
 function renderGraphEditor(){
  const editor=$('#graphRelationEditor');if(!editor)return;
- const valid=state.entities.filter(e=>e.status==='Validada'&&e.analysis_approved===true);
+ const valid=state.entities.filter(e=>e.status==='Validada');
  const focused=valid.find(e=>e.id===relationFocusId)||null;
  if(!focused)relationFocusId=null;
- const validRelationRecords=state.relations.filter(r=>r.status==='Validada'&&valid.some(e=>e.id===r.subject)&&valid.some(e=>e.id===r.object));
  const counts=new Map(valid.map(e=>[e.id,0]));
- validRelationRecords.forEach(r=>{if(counts.has(r.subject))counts.set(r.subject,counts.get(r.subject)+1);if(counts.has(r.object))counts.set(r.object,counts.get(r.object)+1)});
+ state.relations.forEach(r=>{if(counts.has(r.subject))counts.set(r.subject,counts.get(r.subject)+1);if(counts.has(r.object))counts.set(r.object,counts.get(r.object)+1)});
  const sortedValid=valid.slice().filter(e=>(!relationSearch||String(e.name||'').toLocaleLowerCase('pt-BR').includes(relationSearch.toLocaleLowerCase('pt-BR')))&&(!relationTypeFilter||e.type===relationTypeFilter)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR',{sensitivity:'base',numeric:true}));
  const typeOptions=[...new Set(valid.map(e=>e.type).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'})).map(t=>'<option value="'+esc(t)+'" '+(relationTypeFilter===t?'selected':'')+'>'+esc(t)+'</option>').join('');
  const pageSize=15,totalPages=Math.max(1,Math.ceil(sortedValid.length/pageSize));relationListPage=Math.min(relationListPage,totalPages-1);
@@ -149,19 +148,15 @@ function renderGraphEditor(){
   editor.querySelectorAll('[data-open-relation-entity]').forEach(b=>b.onclick=()=>{relationFocusId=b.dataset.openRelationEntity;renderGraphEditor()});
   return;
  }
- const related=state.relations.filter(r=>(r.subject===focused.id||r.object===focused.id)&&valid.some(e=>e.id===(r.subject===focused.id?r.object:r.subject)));
- const confirmedRelated=related.filter(r=>r.status==='Validada');
- const pendingRelated=related.filter(r=>r.status!=='Validada');
+ const related=state.relations.filter(r=>r.subject===focused.id||r.object===focused.id);
  const others=valid.filter(e=>e.id!==focused.id);
  const options='<option value="">Selecione a entidade relacionada</option>'+others.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.name)+' · '+esc(e.type)+'</option>').join('');
  const predicates=['fundador de','dirigente de','membro de','localizado em','ocorreu em','associado a','antecessor de','sucessor de','participou de','produziu','mencionado em'];
- const renderRelationRows=items=>items.slice().reverse().map(r=>{
+ const rows=related.slice().reverse().map(r=>{
   const outgoing=r.subject===focused.id,otherId=outgoing?r.object:r.subject,other=state.entities.find(e=>e.id===otherId);
   return '<article class="sourceitem graph-relation-item"><div class="relation-compact"><b>'+esc(outgoing?focused.name:(other?.name||'Entidade indisponível'))+'</b> <span class="tag">'+esc(r.predicate)+'</span> <b>'+esc(outgoing?(other?.name||'Entidade indisponível'):focused.name)+'</b> <span class="tag '+(r.status==='Validada'?'valid':'pending')+'">'+esc(r.status||'Pendente')+'</span></div><details class="relation-details"><summary>Editar relação / evidência</summary><label>Tipo de relação<select data-edit-predicate="'+esc(r.id)+'">'+predicates.map(p=>'<option value="'+esc(p)+'" '+(p===r.predicate?'selected':'')+'>'+esc(p)+'</option>').join('')+'</select></label><label>Evidência<input data-edit-evidence="'+esc(r.id)+'" value="'+esc(r.evidence||'')+'" placeholder="Trecho, página ou referência"></label><div class="rowactions"><button class="mini" type="button" data-save-relation="'+esc(r.id)+'">Salvar alterações</button>'+(r.status==='Validada'?'':'<button class="mini" type="button" data-validate-relation="'+esc(r.id)+'">Validar relação</button>')+'<button class="mini danger" type="button" data-delete-relation="'+esc(r.id)+'">Excluir</button></div></details></article>';
  }).join('');
- const rows=renderRelationRows(confirmedRelated);
- const pendingRows=renderRelationRows(pendingRelated);
- editor.innerHTML='<div class="toolbar"><div><h3>'+esc(focused.name)+'</h3><p>'+esc(focused.type)+' · '+confirmedRelated.length+' relação(ões) validadas</p></div><button class="btn ghost" type="button" id="relationBackToList">← Lista de itens</button></div><div class="panel"><h3>Adicionar relação</h3><div class="relationform"><label>Tipo de relação<select id="focusedPredicate">'+predicates.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join('')+'</select></label><label>Entidade relacionada<select id="focusedObject">'+options+'</select></label><label class="wide">Evidência / justificativa<input id="focusedEvidence" placeholder="Trecho, página ou referência (opcional)"></label></div><button class="btn primary" type="button" id="focusedAddRelation">Adicionar relação</button></div><div class="panel"><h3>Relações validadas ('+confirmedRelated.length+')</h3>'+(rows||'<p class="hint">Nenhuma relação validada para este item.</p>')+'</div>'+(pendingRelated.length?'<div class="panel"><h3>Pendentes de validação ('+pendingRelated.length+')</h3><p class="hint">Estas relações ainda não entram no grafo. Valide-as para torná-las oficiais.</p>'+pendingRows+'</div>':'')+'<div class="panel"><h3>Outros itens validados</h3><div class="relation-entity-list">'+entityCards+'</div></div>';
+ editor.innerHTML='<div class="toolbar"><div><h3>'+esc(focused.name)+'</h3><p>'+esc(focused.type)+' · '+related.length+' relação(ões)</p></div><button class="btn ghost" type="button" id="relationBackToList">← Lista de itens</button></div><div class="panel"><h3>Adicionar relação</h3><div class="relationform"><label>Tipo de relação<select id="focusedPredicate">'+predicates.map(p=>'<option value="'+esc(p)+'">'+esc(p)+'</option>').join('')+'</select></label><label>Entidade relacionada<select id="focusedObject">'+options+'</select></label><label class="wide">Evidência / justificativa<input id="focusedEvidence" placeholder="Trecho, página ou referência (opcional)"></label></div><button class="btn primary" type="button" id="focusedAddRelation">Adicionar relação</button></div><div class="panel"><h3>Relações deste item ('+related.length+')</h3>'+(rows||'<p class="hint">Este item ainda não possui relações. Adicione uma acima.</p>')+'</div><div class="panel"><h3>Outros itens validados</h3><div class="relation-entity-list">'+entityCards+'</div></div>';
  editor.querySelector('#relationBackToList').onclick=()=>{relationFocusId=null;renderGraphEditor()};
  editor.querySelector('#focusedAddRelation').onclick=()=>{
   const object=$('#focusedObject').value;if(!object)return alert('Selecione a entidade relacionada.');
@@ -179,7 +174,7 @@ function renderGraphEditor(){
 function drawGraph(){
  const host=$('#graphView');if(!host)return;
  // Somente entidades validadas entram no grafo. Relações precisam ligar dois nós validados.
- const all=state.entities.filter(n=>n.status==='Validada'&&n.analysis_approved===true).map(n=>({...n}));
+ const all=state.entities.filter(n=>n.status==='Validada').map(n=>({...n}));
  const byId=new Map(all.map(n=>[n.id,n]));
  const relations=state.relations.filter(e=>e.status==='Validada'&&byId.has(e.subject)&&byId.has(e.object));
  const degree=new Map(all.map(n=>[n.id,0]));
@@ -269,13 +264,13 @@ render();
  const section=(id,html)=>{const s=document.createElement('section');s.id=id;s.className='page';s.innerHTML=html;insertBefore.insertAdjacentElement('beforebegin',s)};
  section('relation-manager','<div class="toolbar"><div><h2>Cadastro de relações</h2><p>Registre vínculos entre entidades validadas e documente as evidências.</p></div></div><div id="graphRelationEditor" class="panel graph-editor"></div>');
  section('identify',`
- <div class="toolbar"><div><h2>Análise</h2><p>Insira um documento ou imagem. O sistema aplicará as orientações cadastradas, apresentará as evidências e permitirá validar cada informação.</p></div></div>
- <div class="panel"><div class="panelhead"><div><h3>Etapa 1 — Inserir documento ou foto</h3><p>PDF, DOCX, JPG, PNG, WEBP ou TIFF. Fotos podem ser capturadas pela câmera ou escolhidas na galeria.</p></div></div>
- <div class="photo-actions"><button class="btn primary" type="button" id="takePhoto">▣ Tirar foto</button><button class="btn ghost" type="button" id="choosePhoto">＋ Escolher foto</button><button class="btn ghost" type="button" id="chooseDocument">Selecionar documento</button></div>
- <input id="moduleCamera" type="file" accept="image/*" capture="environment" hidden><label class="drop" for="moduleFile"><div class="uploadicon">↑</div><b>Selecionar ou arrastar arquivo</b><span>PDF, DOCX, JPG, PNG, WEBP ou TIFF</span><input id="moduleFile" type="file" accept=".docx,.pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff"></label>
- <div id="moduleMsg" class="message" role="status" aria-live="polite"></div><div id="processPanel" class="process-panel" hidden><div class="process-top"><b id="processStage">Aguardando arquivo</b><strong id="processPercent">0%</strong></div><div class="process-track"><div id="processBar" class="process-bar"></div></div><p id="processDetail">O andamento será exibido aqui.</p><a id="downloadOcrPdf" class="btn ghost" hidden download>↓ Baixar PDF pesquisável</a></div></div>
- <div class="panel"><div class="panelhead"><div><h3>Etapa 2 — Revisão dos resultados</h3><p>Revise cada ocorrência. Ao validar ou excluir, ela sai da fila de pendências e continua disponível nos filtros.</p></div><button class="btn primary" id="continueValidated">Continuar para entidades</button></div><div id="analysisReviewPanel" class="analysis-review-list empty">Envie um documento para iniciar a análise.</div></div>
- <div hidden><div id="sourceAnalysisPanel"></div><div id="consolidatedItemsPanel"></div><strong id="idSources">0</strong><strong id="idEntities">0</strong><strong id="idValidated">0</strong><strong id="idPending">0</strong><div id="identifyResults"></div><button id="openEntityList"></button></div>`);
+ <div class="toolbar"><div><h2>Identificação de entidades</h2><p>Importe livros, documentos ou imagens. O sistema localiza menções e apresenta evidências para revisão.</p></div><button class="btn primary" id="identifyUpload">＋ Adicionar fonte</button></div>
+ <div class="module-note"><b>Como interpretar os resultados</b><p>São candidatos encontrados no texto, não fatos confirmados. A identificação de pessoas, organizações e eventos exige validação contextual. PDF digitalizado e fotografia dependem de OCR.</p></div>
+ <div class="panel"><div class="panelhead"><div><h3>Adicionar livro, documento ou fotografia</h3><p>DOCX, PDF e imagens · processamento no navegador</p></div></div><div class="photo-actions"><button class="btn primary" type="button" id="takePhoto">▣ Tirar foto com a câmera</button><button class="btn ghost" type="button" id="choosePhoto">＋ Escolher da galeria</button><button class="btn ghost" type="button" id="chooseDocument">Selecionar documento</button></div><input id="moduleCamera" type="file" accept="image/*" capture="environment" hidden><label class="drop" for="moduleFile"><div class="uploadicon">↑</div><b>Ou selecione / arraste um arquivo</b><span>DOCX, PDF pesquisável, JPG, PNG, WEBP ou TIFF</span><input id="moduleFile" type="file" accept=".docx,.pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff"></label><div id="moduleMsg" class="message" role="status" aria-live="polite"></div><div id="processPanel" class="process-panel" hidden><div class="process-top"><b id="processStage">Aguardando arquivo</b><strong id="processPercent">0%</strong></div><div class="process-track"><div id="processBar" class="process-bar"></div></div><p id="processDetail">O andamento será exibido aqui.</p><a id="downloadOcrPdf" class="btn ghost" hidden download>↓ Baixar PDF pesquisável</a></div><p class="hint">A foto é processada no próprio navegador. O OCR reconhece textos; não identifica automaticamente pessoas ou objetos.</p></div>
+ <div class="panel"><div class="panelhead"><div><h3>Fontes analisadas</h3><p>Revise as menções de cada fonte antes de validá-la. Somente metadados e menções validadas serão sincronizados.</p></div></div><div id="sourceAnalysisPanel" class="empty">Nenhuma fonte adicionada.</div></div>
+ <div class="panel"><div class="panelhead"><div><h3>Itens consolidados entre fontes</h3><p>Uma entidade aparece uma única vez nesta lista. As ocorrências permanecem rastreáveis por fonte.</p></div></div><div id="consolidatedItemsPanel" class="empty">Valide fontes para consolidar os itens.</div></div>
+ <div class="stats"><div class="stat"><small>FONTES</small><strong id="idSources">0</strong><span>arquivos analisados</span></div><div class="stat"><small>MENÇÕES CANDIDATAS</small><strong id="idEntities">0</strong><span>identificações para revisar</span></div><div class="stat"><small>VALIDADAS</small><strong id="idValidated">0</strong><span>após conferência humana</span></div><div class="stat"><small>PENDENTES</small><strong id="idPending">0</strong><span>aguardando análise</span></div></div>
+ <div class="panel"><div class="panelhead"><div><h3>Resultados e evidências</h3><p>Edite o nome, classifique o tipo e valide ou rejeite cada menção.</p></div><button class="btn ghost" id="openEntityList">Abrir lista completa</button></div><div id="identifyResults" class="empty">Nenhuma identificação disponível.</div></div>`);
  section('labogad',`
  <div class="toolbar"><div><h2>Descrição LABOGAD</h2><p>Fichas estruturadas conforme os tipos de recurso e orientações da cartilha.</p></div></div>
  <div class="module-note"><b>Princípio de trabalho</b><p>Descrever primeiro o que a fonte permite afirmar; registrar lacunas e incertezas; relacionar recursos e entidades; submeter a descrição à revisão antes de considerá-la pronta.</p></div>
@@ -365,7 +360,7 @@ render();
  $('#omExport').onclick=()=>download('omeka-s-item-'+Date.now()+'.json',JSON.stringify(omBuildDraft(),null,2));
  omFillSelects();omRenderProperties();omRenderDrafts();
  $('#omNewItem').onclick=()=>{if(!$('#omEditorView').hidden){$('#omEditorView').hidden=true;$('#omListView').hidden=false;$('#omNewItem').textContent='＋ Novo item';return}omEditingId=null;$('#omTitle').value='';$('#omTemplate').value='';$('#omClass').value='';$('#omLinkedEntity').value='';$('#omItemSets').value='';$('#omSites').value='';$('#omVisibility').value='public';$('#omOwner').value='';$('#omLanguage').value='pt-BR';$('#omStatus').value='draft';$('#omMapping').value='';$('#omTemplateName').value='';state.omekaCurrentFields=[];omMediaFiles=[];$('#omMediaList').textContent='Nenhuma mídia selecionada.';omRenderProperties();$('#omEditorView').hidden=false;$('#omListView').hidden=true;$('#omNewItem').textContent='← Voltar à lista';window.scrollTo({top:0,behavior:'smooth'})};
- const legacyIdentifyUpload=$('#identifyUpload');if(legacyIdentifyUpload)legacyIdentifyUpload.onclick=()=>$('#moduleFile').click();
+ $('#identifyUpload').onclick=()=>$('#moduleFile').click();
  $('#homeCamera').onclick=()=>{window.page('identify');$('#moduleCamera').click()};
  $('#homeTiff').onclick=()=>{window.page('identify');$('#moduleFile').accept='.tif,.tiff';$('#moduleFile').click();$('#moduleFile').accept='.docx,.pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff'};
  $('#openEntityList').onclick=()=>window.page('entities');
@@ -407,35 +402,11 @@ render();
   const groups=new Map();
   state.sources.filter(s=>s.status==='Validada').forEach(s=>{
    const mentions=Array.isArray(s.mentions)?s.mentions:state.entities.filter(e=>e.source_id===s.id&&e.status==='Validada').map(e=>({mention_id:e.id,entity_id:e.id,name:e.name,type:e.type,source_excerpt:e.source_excerpt}));
-   mentions.forEach(m=>{const key=String(m.type||'Entidade').trim().toLocaleLowerCase('pt-BR')+'|'+String(m.name||'').trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');if(!m.name)return;let g=groups.get(key);if(!g){g={name:m.name,type:m.type||'Entidade',mentions:0,sources:new Map(),examples:[]};groups.set(key,g)}g.mentions++;g.sources.set(s.id,s.title||s.filename);if(g.examples.length<3&&m.source_excerpt)g.examples.push(m.source_excerpt)});
+   mentions.forEach(m=>{const key=String(m.type||'Entidade').trim().toLocaleLowerCase('pt-BR')+'|'+String(m.name||'').trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\\s+/g,' ');if(!m.name)return;let g=groups.get(key);if(!g){g={name:m.name,type:m.type||'Entidade',mentions:0,sources:new Map(),examples:[]};groups.set(key,g)}g.mentions++;g.sources.set(s.id,s.title||s.filename);if(g.examples.length<3&&m.source_excerpt)g.examples.push(m.source_excerpt)});
   });
   const itemRows=[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR',{sensitivity:'base'}));
   const itemPanel=$('#consolidatedItemsPanel');
   if(itemPanel)itemPanel.innerHTML=itemRows.length?'<div class="relation-items-table"><div class="relation-items-head"><span>Item</span><span>Tipo</span><span>Menções</span><span>Fontes</span></div>'+itemRows.map(g=>'<div class="relation-item-row"><span class="relation-item-title">'+esc(g.name)+'</span><span class="relation-item-type">'+esc(g.type)+'</span><span>'+g.mentions+'</span><span>'+g.sources.size+'</span></div>').join('')+'</div><p class="hint">'+itemRows.filter(g=>g.sources.size>1).length+' itens aparecem em mais de uma fonte. A consolidação automática considera apenas nome e tipo exatamente correspondentes; variantes de nomes precisam de confirmação humana.</p>':'Valide fontes e suas menções para visualizar os itens consolidados.';
-  const reviewPanel=$('#analysisReviewPanel');
-  const activeOrientationId=localStorage.getItem('ric_guided_active_id');
-  const reviewItems=activeOrientationId?state.entities.filter(e=>e.orientation_id===activeOrientationId):[];
-  const statusFilter=window.__ricAnalysisFilter||'Pendente';
-  const counts={Pendente:reviewItems.filter(e=>e.status==='Pendente'||!e.status).length,Validada:reviewItems.filter(e=>e.status==='Validada').length,Excluída:reviewItems.filter(e=>e.status==='Excluída'||e.status==='Rejeitada').length};
-  const visibleItems=reviewItems.filter(e=>statusFilter==='Excluída'?(e.status==='Excluída'||e.status==='Rejeitada'):statusFilter==='Pendente'?(e.status==='Pendente'||!e.status):e.status===statusFilter).slice().reverse();
-  if(reviewPanel){
-   reviewPanel.innerHTML='<div class="analysis-filterbar">'+['Pendente','Validada','Excluída'].map(st=>'<button type="button" class="analysis-filter '+(statusFilter===st?'active':'')+'" data-analysis-filter="'+st+'">'+st+' <span>'+counts[st]+'</span></button>').join('')+'</div>'+
-    (visibleItems.length?'<div class="analysis-items">'+visibleItems.map(e=>{
-      const expanded=window.__ricAnalysisExpanded===e.id,source=state.sources.find(s=>s.id===e.source_id);
-      return '<article class="analysis-item"><div class="analysis-item-main"><div class="analysis-item-title"><b>'+esc(e.name)+'</b><small>'+esc(e.type||'Entidade')+' · '+esc(source?.filename||'Documento')+'</small></div><div class="analysis-item-actions"><button type="button" class="mini" data-analysis-view="'+esc(e.id)+'">'+(expanded?'Fechar':'Visualizar')+'</button>'+(statusFilter==='Pendente'?'<button type="button" class="mini primary" data-analysis-validate="'+esc(e.id)+'">Validar</button><button type="button" class="mini danger" data-analysis-delete="'+esc(e.id)+'">Excluir</button>':'<span class="analysis-state '+(e.status==='Validada'?'valid':'')+'">'+(e.status==='Validada'?'Validada':'Excluída')+'</span>')+'</div></div>'+
-      (expanded?'<div class="analysis-item-detail"><p>'+esc(e.source_excerpt||'Sem trecho de evidência.')+'</p><small>'+esc(e.evidence||'Menção localizada no documento')+'</small></div>':'')+'</article>';
-    }).join('')+'</div>':'<div class="analysis-empty">Nenhum registro '+(statusFilter==='Pendente'?'pendente':statusFilter==='Validada'?'validado':'excluído')+' nesta orientação.</div>');
-   if(!reviewPanel.dataset.bound){reviewPanel.dataset.bound='1';reviewPanel.addEventListener('click',async ev=>{
-    const filter=ev.target.closest('[data-analysis-filter]');if(filter){window.__ricAnalysisFilter=filter.dataset.analysisFilter;renderWorkspace();return}
-    const view=ev.target.closest('[data-analysis-view]');if(view){window.__ricAnalysisExpanded=window.__ricAnalysisExpanded===view.dataset.analysisView?null:view.dataset.analysisView;renderWorkspace();return}
-    const yes=ev.target.closest('[data-analysis-validate]'),del=ev.target.closest('[data-analysis-delete]'),btn=yes||del;if(!btn)return;
-    const entity=state.entities.find(x=>x.id===(yes?yes.dataset.analysisValidate:del.dataset.analysisDelete));if(!entity)return;
-    const previous=entity.status;entity.status=yes?'Validada':'Excluída';entity.analysis_approved=!!yes;if(!saveState()){entity.status=previous;return}
-    window.__ricAnalysisExpanded=null;renderWorkspace();
-    if(yes){try{await saveValidatedEntityToCloud(entity)}catch(err){alert('A informação foi validada localmente, mas não foi sincronizada na nuvem: '+(err.code||err.message))}}
-   })}
-  }
-  const continueBtn=$('#continueValidated');if(continueBtn&&!continueBtn.dataset.bound){continueBtn.dataset.bound='1';continueBtn.addEventListener('click',()=>page('entities'))}
   const latest=state.entities.slice(-12).reverse();
   $('#identifyResults').innerHTML=latest.length?latest.map(e=>'<div class="sourceitem"><div><b>'+esc(e.name)+'</b><small>'+esc(e.type)+' · '+esc(e.status)+' · '+esc(e.confidence)+'</small><p class="excerpt">'+highlightText(e.source_excerpt||'',[e.name])+'</p></div><span class="tag">'+esc(e.status)+'</span></div>').join(''):'Nenhuma identificação disponível.';
   const labs=state.labDescriptions||[];
@@ -481,35 +452,17 @@ render();
   const link=$('#downloadOcrPdf');link.href=convertedPdfUrl;link.download=f.name.replace(/\\.(tif|tiff)$/i,'')+'-ocr.pdf';link.hidden=false;
   return {blocks,pages:pages.length};
  };
- const loadRiCOrientations=()=>{try{const rows=JSON.parse(localStorage.getItem('ric_guided_research_v1')||'[]');if(!Array.isArray(rows))return [];const valid=rows.filter(p=>p&&p.main&&p.main.name);const activeId=localStorage.getItem('ric_guided_active_id');const active=valid.find(p=>p.id===activeId)||valid[0];return active?[active]:[]}catch(e){return []}};
- const extractOrientedEntities=(text,sid,orientation)=>{
-  // Somente termos explicitamente cadastrados na orientação ativa podem gerar candidatos.
-  const terms=[{name:orientation.main.name,type:orientation.main.category||'Pessoa',role:'Entidade principal'},...(orientation.main.variants||'').split(/[,;|\n]/).map(x=>({name:x.trim(),type:orientation.main.category||'Pessoa',role:'Variante cadastrada'}))];
-  for(const target of orientation.targets||[]){for(const term of String(target.terms||'').split(/[,;|\n]/).map(x=>x.trim()).filter(Boolean))terms.push({name:term,type:target.category||'Entidade',role:'Termo cadastrado na orientação'});}
-  const command=String(orientation.command||'');const quotedTerms=Array.from(command.matchAll(/[“"']([^”"']{2,100})[”"']/g),m=>m[1]);for(const term of quotedTerms)terms.push({name:term,type:'Critério da orientação',role:'Expressão explicitamente citada no comando'});
-  const found=[],seen=new Set(),lower=text.toLocaleLowerCase('pt-BR');
-  for(const item of terms){const term=String(item.name||'').trim();if(term.length<2)continue;const q=term.toLocaleLowerCase('pt-BR');let at=0,count=0;
-   while((at=lower.indexOf(q,at))>=0&&count++<100){const before=at===0?'':text[at-1],after=text[at+term.length]||'';if(/[\p{L}\p{N}_]/u.test(before)||/[\p{L}\p{N}_]/u.test(after)){at+=q.length;continue}
-    const key=item.type+'|'+q+'|'+at;if(seen.has(key)){at+=q.length;continue}seen.add(key);
-    const excerpt=text.slice(Math.max(0,at-260),Math.min(text.length,at+term.length+340)).replace(/\s+/g,' ');
-    const pageMatch=text.slice(0,at).match(/\[Página (\d+)\]/g),page=pageMatch?.length?pageMatch[pageMatch.length-1].match(/\d+/)?.[0]:null;
-    found.push({id:id(),name:term,type:item.type,source_id:sid,source_excerpt:excerpt,position:at,page,confidence:'Média',status:'Pendente',evidence:item.role+' localizada conforme a orientação ativa “'+(orientation.name||'Pesquisa orientada')+'”. Conferir o contexto e validar a identificação.',variants:[],orientation_id:orientation.id,orientation_name:orientation.name});
-    at+=q.length;
-   }
-  }
-  return found;
- };
  const processModuleFile=async f=>{if(!f)return;const msg=$('#moduleMsg');msg.textContent='Iniciando processamento…';$('#downloadOcrPdf').hidden=true;showProcess('Preparando arquivo',1,'O arquivo será processado localmente neste navegador.');
  try{
   const ext=f.name.split('.').pop().toLowerCase();let blocks=[],tiffPages=0;
   if(['tif','tiff'].includes(ext)){const result=await processTiff(f);blocks=result.blocks;tiffPages=result.pages}
   else if(['jpg','jpeg','png','webp'].includes(ext)){if(!window.Tesseract)throw Error('Biblioteca OCR não carregou. Recarregue a página.');showProcess('Etapa 1 de 3 · Preparando imagem',8,'Abrindo imagem…');const result=await Tesseract.recognize(f,'por',{logger:m=>{if(m.status==='recognizing text')showProcess('Etapa 2 de 3 · OCR da imagem',15+(m.progress||0)*65,'Reconhecendo texto em português…')}});const text=result.data.text.trim();blocks=text?text.split(/\\n+/).map(x=>x.trim()).filter(Boolean):[]}
   else {showProcess('Etapa 1 de 2 · Lendo documento',20,'Extraindo texto do arquivo…');blocks=await readFile(f)}
-  showProcess('Analisando documento · identificando menções',92,'Localizando somente termos definidos na orientação ativa…');
-  const text=blocks.join('\\n'),sid=id(),orientations=loadRiCOrientations(),activeOrientation=orientations[0]||null,entities=activeOrientation?extractOrientedEntities(text,sid,activeOrientation):[];
+  showProcess('Analisando documento · identificando menções',92,'Extraindo candidatos de pessoas, organizações, locais, eventos e datas…');
+  const text=blocks.join('\\n'),sid=id(),entities=extractEntities(text,sid);
   const source={id:sid,filename:f.name,title:f.name.replace(/\\.[^.]+$/,''),kind:'Documento analisado',status:'Em análise',text,blocks,entity_count:entities.length,created_at:new Date().toLocaleString('pt-BR'),ocr:['jpg','jpeg','png','webp','tif','tiff'].includes(ext),original_format:ext,derived_pdf:ext==='tif'||ext==='tiff'?'PDF pesquisável gerado':''};
   state.sources.push(source);state.entities.push(...entities);
-  if(saveState()){render();renderWorkspace();omFillSelects();showProcess('Concluído · análise finalizada',100,(tiffPages?tiffPages+' páginas convertidas para PDF. ':'')+blocks.length+' blocos; '+entities.length+' ocorrências encontradas exclusivamente pelos critérios da orientação ativa '+(activeOrientation?'“'+activeOrientation.name+'”':'(nenhuma orientação configurada)')+'.');msg.textContent=blocks.length?(activeOrientation?'Documento analisado exclusivamente com os critérios da orientação ativa “'+activeOrientation.name+'”. Confira as evidências e valide manualmente.':'Documento analisado pelas regras gerais. Cadastre uma orientação para direcionar a próxima análise.'):'Arquivo convertido, mas não foi encontrado texto legível. Será necessária revisão manual.'}
+  if(saveState()){render();renderWorkspace();omFillSelects();showProcess('Concluído · conversão e análise finalizadas',100,(tiffPages?tiffPages+' páginas convertidas para PDF. ':'')+blocks.length+' blocos de texto e '+entities.length+' menções candidatas encontradas em '+newItems.length+' itens novos; as demais foram associadas a itens existentes.');msg.textContent=blocks.length?'Documento analisado. Confira as menções candidatas abaixo.':'Arquivo convertido, mas o OCR não encontrou texto legível. A imagem foi preservada no PDF; será necessária revisão manual.'}
  }catch(err){showProcess('Processamento interrompido',0,err.message);msg.textContent=err.message}};
 
  $('#moduleFile').onchange=ev=>{processModuleFile(ev.target.files[0]);ev.target.value=''};
@@ -528,32 +481,18 @@ render();
  window.page('identify');
 })();
 
-// Zera os dados locais e as coleções operacionais do Firebase. Mantém contas e perfis de acesso.
+// Zera os dados locais deste aplicativo. A ação não pode ser desfeita.
 const resetButton=$('#resetApp');
-if(resetButton)resetButton.onclick=async()=>{
- if(!confirm('ATENÇÃO: esta ação apagará os dados locais e os registros do Sistema RiC no Firebase (entidades, relações, fontes e grafo público). As contas e os perfis de administrador serão preservados. Exporte um backup antes. Deseja continuar?'))return;
- if(prompt('Para confirmar a limpeza local e remota, digite ZERAR:')!=='ZERAR')return;
- const f=window.RiCFirebase;
- if(!f?.auth?.currentUser){alert('Entre como administrador no Firebase antes de zerar o aplicativo. Nenhum dado foi apagado.');return}
- resetButton.disabled=true;const originalLabel=resetButton.textContent;resetButton.textContent='Zerando…';
- try{
-  const collections=['entities','relations','sources','public_entities','public_relations'];
-  let removed=0;
-  for(const name of collections){
-   const snap=await f.dbApi.getDocs(f.dbApi.collection(f.db,name));
-   for(const docSnap of snap.docs){await f.dbApi.deleteDoc(docSnap.ref);removed++}
-  }
-  // Remove somente chaves locais do Sistema RiC; a sessão Firebase permanece intacta.
-  for(const key of Object.keys(localStorage)){if(key.startsWith('ric_'))localStorage.removeItem(key)}
-  localStorage.removeItem(KEY);localStorage.removeItem('ric_knowledge_local_v1');
-  state=emptyState();saveState();
-  window.RiCResetGuidance?.();
-  relationFocusId=null;relationListPage=0;relationSearch='';relationTypeFilter='';
-  render();page('identify');
-  alert('Sistema RiC zerado. '+removed+' registro(s) removido(s) do Firebase. Contas e perfis de acesso foram preservados.');
- }catch(err){
-  alert('A limpeza não foi concluída. Pode haver exclusões parciais no Firebase. Erro: '+(err.code||err.message)+'. Confira as permissões e tente novamente.');
- }finally{resetButton.disabled=false;resetButton.textContent=originalLabel}
+if(resetButton)resetButton.onclick=()=>{
+ if(!confirm('ATENÇÃO: isso apagará fontes, entidades, relações, descrições, notas e a base de conhecimento deste navegador. Exporte um backup antes. Deseja continuar?'))return;
+ if(!confirm('Confirma definitivamente apagar todos os dados locais do Sistema RiC?'))return;
+ localStorage.removeItem(KEY);
+ localStorage.removeItem('ric_knowledge_local_v1');
+ state=emptyState();
+ saveState();
+ render();
+ page('identify');
+ alert('Dados do aplicativo apagados. Sua sessão administrativa foi mantida.');
 };
 
 /* Instalação como aplicativo (PWA) e cache básico da interface */
@@ -615,7 +554,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  }
  async function publish(){
   const f=window.RiCFirebase,a=f.dbApi,d=f.db;
-  const validEntities=state.entities.filter(e=>e.status==='Validada'&&e.analysis_approved===true&&e.id&&e.name);
+  const validEntities=state.entities.filter(e=>e.status==='Validada'&&e.id&&e.name);
   const validIds=new Set(validEntities.map(e=>e.id));
   const rs=state.relations.filter(r=>r.status==='Validada'&&r.id&&r.subject&&r.object&&r.predicate&&validIds.has(r.subject)&&validIds.has(r.object));
   const linkedIds=new Set(rs.flatMap(r=>[r.subject,r.object]));
@@ -738,52 +677,4 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
  });
  // Inicializa o fluxo de autenticação e registra a recuperação da sessão no F5.
  connect();
-})();
-
-/* RiC · Orientação — cadastro enxuto de itens */
-(function(){
-const K='ric_guided_research_v1', $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), uid=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random();
-const cats=[['Pessoa','Person'],['Grupo','Group'],['Organização','Corporate Body'],['Local','Place'],['Evento','Event'],['Atividade','Activity'],['Data / período','Date'],['Documento','Record'],['Coisa / objeto','Thing']];
-let db=[];try{db=JSON.parse(localStorage.getItem(K)||'[]')}catch(e){}if(!Array.isArray(db))db=[];
-let aid=localStorage.getItem('ric_guided_active_id')||null, editing=null, viewing=null, draft=null;
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(db));return true}catch(e){alert('Armazenamento local cheio. Exporte um backup e reduza o conteúdo.');return false}};
-const host=document.querySelector('.sidebar .module-nav');if(!host)return;
-const nav=document.createElement('button');nav.className='nav module-link';nav.innerHTML='<span class="module-num">01</span><span>Orientação</span>';nav.dataset.page='guided-search';host.insertBefore(nav,host.querySelector('.nav[data-page]'));host.querySelectorAll('.nav[data-page] .module-num').forEach((el,i)=>el.textContent=String(i+1).padStart(2,'0'));
-const sec=document.createElement('section');sec.id='guided-search';sec.className='page';sec.innerHTML='<div class="toolbar"><div><h2>Orientação</h2><p>Cadastre os itens e os critérios que serão utilizados na etapa Análise.</p></div><button class="btn primary" id="grNew">＋ Adicionar mais itens</button></div><div class="guided-layout"><aside class="panel guided-list"><h3>Itens cadastrados</h3><div id="grList"></div></aside><div class="panel" id="grEditor"><p class="hint">Adicione um item para começar.</p></div></div>';
-document.querySelector('#overview').before(sec);
-function open(){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id==='guided-search'));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x===nav));if($('pagetitle'))$('pagetitle').textContent='Orientação';list();editor()}nav.onclick=open;
-function list(){
- const el=$('grList');
- el.innerHTML=db.length?db.map(p=>'<article class="gr-item-row"><div class="gr-item-info"><b>'+esc(p.name||p.main?.name||'Item sem título')+'</b><small>'+(p.main?.name?esc(p.main.name)+' · ':'')+esc(p.main?.category||'Categoria não definida')+'</small></div><div class="gr-item-actions"><button class="mini" data-view="'+esc(p.id)+'">Visualizar</button><button class="mini" data-edit="'+esc(p.id)+'">Editar</button><button class="mini danger" data-delete="'+esc(p.id)+'">Excluir</button></div></article>').join(''):'<p class="hint">Nenhum item cadastrado.</p>';
- el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{viewing=b.dataset.view;editing=null;aid=viewing;localStorage.setItem('ric_guided_active_id',aid);editor()});
- el.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editing=b.dataset.edit;viewing=null;aid=editing;localStorage.setItem('ric_guided_active_id',aid);editor()});
- el.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{const p=db.find(x=>x.id===b.dataset.delete);if(!p||!confirm('Excluir o item "'+(p.name||p.main?.name||'')+'" e seus critérios?'))return;db=db.filter(x=>x.id!==p.id);if(aid===p.id){aid=db[0]?.id||null;localStorage.setItem('ric_guided_active_id',aid||'')}if(!save())return;editing=null;viewing=null;list();editor()});
-}
-function blank(){return {id:uid(),name:'',main:{category:'Pessoa',name:'',variants:'',notes:''},targets:[],command:'',docs:[],results:[]}}
-window.RiCResetGuidance=()=>{db=[];aid=null;editing=null;viewing=null;localStorage.removeItem(K);localStorage.removeItem('ric_guided_active_id');list();editor()};
-function renderFields(p,readonly=false){
- p.main=p.main||{category:'Pessoa',name:'',variants:'',notes:''};p.targets=p.targets||[];
- const selected=new Set(p.targets.map(x=>x.category));
- const dis=readonly?'disabled':'';
- return '<label class="gor-label">Nome do item<input id="grName" '+dis+' value="'+esc(p.name||'')+'" placeholder="Ex.: Pesquisa sobre Bide"></label>'+
- '<label class="gor-label">Categoria da entidade principal<select id="grMainCat" '+dis+'>'+cats.map(c=>'<option '+(p.main.category===c[0]?'selected':'')+' value="'+esc(c[0])+'">'+esc(c[0])+' ('+esc(c[1])+')</option>').join('')+'</select></label>'+
- '<label class="gor-label">Nome da entidade ou assunto<input id="grMainName" '+dis+' value="'+esc(p.main.name)+'" placeholder="Ex.: Bide"></label>'+
- '<label class="gor-label">Outros nomes, apelidos e variantes<input id="grMainVars" '+dis+' value="'+esc(p.main.variants||'')+'" placeholder="Separados por vírgula"></label>'+
- '<label class="gor-label">Observações para identificar corretamente<textarea id="grMainNotes" '+dis+' rows="2" placeholder="Informações que ajudem a distinguir homônimos">'+esc(p.main.notes||'')+'</textarea></label>'+
- '<div class="gor-subhead"><h3>Categorias e informações a pesquisar</h3></div><div class="gor-add-criterion" id="grTargetList">'+cats.map(c=>{const t=p.targets.find(x=>x.category===c[0])||{};return '<div class="gor-target"><label class="gor-check"><input type="checkbox" data-target="'+esc(c[0])+'" '+(selected.has(c[0])?'checked':'')+' '+dis+'> <b>'+esc(c[0])+'</b> <small>('+esc(c[1])+')</small></label><label class="gor-label">Termos conhecidos (opcional)<input '+dis+' data-terms="'+esc(c[0])+'" value="'+esc(t.terms||'')+'" placeholder="Separados por vírgula"></label><label class="gor-label">Dados ou aspectos de interesse<input '+dis+' data-notes="'+esc(c[0])+'" value="'+esc(t.notes||'')+'" placeholder="Ex.: vínculos, locais de atuação, datas"></label></div>'}).join('')+'</div>'+
- '<label class="gor-label">Instruções adicionais para a pesquisa (opcional)<textarea id="grCommand" '+dis+' rows="3" placeholder="Descreva o que a análise deve observar nos documentos">'+esc(p.command||'')+'</textarea></label>';
-}
-function editor(){
- const el=$('grEditor');
- if(viewing){const p=db.find(x=>x.id===viewing);if(!p){viewing=null;return editor()}el.innerHTML='<div class="panelhead"><h3>Visualizar item</h3><button class="btn ghost" id="grBack">Voltar à lista</button></div><h3 class="gr-view-title">'+esc(p.name||p.main?.name||'Item sem título')+'</h3>'+renderFields(p,true)+'<div class="gor-actions"><button class="btn primary" id="grViewEdit">Editar item</button></div>';$('grBack').onclick=()=>{viewing=null;editor()};$('grViewEdit').onclick=()=>{editing=p.id;viewing=null;editor()};return}
- const p=editing?(db.find(x=>x.id===editing)||draft):null;
- if(!p){el.innerHTML='<div class="gr-empty"><p class="hint">Selecione um item para visualizar ou editar, ou adicione um novo item.</p><button class="btn primary" id="grStartAdd">＋ Adicionar item</button></div>';$('grStartAdd').onclick=()=>startNew();return}
- el.innerHTML='<div class="panelhead"><h3>Editar item</h3><button class="btn ghost" id="grCancel">Cancelar</button></div>'+renderFields(p)+'<p id="grMsg" class="message"></p><div class="gor-actions"><button class="btn primary" id="grSaveItem">Salvar item</button></div>';
- const capture=()=>{p.name=$('grName').value.trim();p.main={category:$('grMainCat').value,name:$('grMainName').value.trim(),variants:$('grMainVars').value,notes:$('grMainNotes').value};p.command=$('grCommand').value;p.targets=[...$('grTargetList').querySelectorAll('[data-target]:checked')].map(ch=>({category:ch.dataset.target,terms:$('grTargetList').querySelector('[data-terms="'+ch.dataset.target+'"]').value,notes:$('grTargetList').querySelector('[data-notes="'+ch.dataset.target+'"]').value}));return p};
- $('grCancel').onclick=()=>{editing=null;draft=null;editor()};
- $('grSaveItem').onclick=()=>{capture();if(!p.name)return $('grMsg').textContent='Informe um nome para o item.';if(!p.main.name)return $('grMsg').textContent='Informe a entidade ou assunto principal.';if(!p.targets.length)return $('grMsg').textContent='Selecione pelo menos uma categoria de informação.';if(!db.some(x=>x.id===p.id))db.unshift(p);if(!save())return;draft=null;aid=p.id;localStorage.setItem('ric_guided_active_id',aid);editing=null;viewing=p.id;list();editor()};
-}
-function startNew(){draft=blank();editing=draft.id;viewing=null;editor()}
-$('grNew').onclick=startNew;
-list();if(!aid||!db.some(x=>x.id===aid))aid=db[0]?.id||null;if(aid)localStorage.setItem('ric_guided_active_id',aid);editor();
 })();
