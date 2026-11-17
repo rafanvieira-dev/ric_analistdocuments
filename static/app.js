@@ -361,7 +361,7 @@ render();
  $('#omExport').onclick=()=>download('omeka-s-item-'+Date.now()+'.json',JSON.stringify(omBuildDraft(),null,2));
  omFillSelects();omRenderProperties();omRenderDrafts();
  $('#omNewItem').onclick=()=>{if(!$('#omEditorView').hidden){$('#omEditorView').hidden=true;$('#omListView').hidden=false;$('#omNewItem').textContent='＋ Novo item';return}omEditingId=null;$('#omTitle').value='';$('#omTemplate').value='';$('#omClass').value='';$('#omLinkedEntity').value='';$('#omItemSets').value='';$('#omSites').value='';$('#omVisibility').value='public';$('#omOwner').value='';$('#omLanguage').value='pt-BR';$('#omStatus').value='draft';$('#omMapping').value='';$('#omTemplateName').value='';state.omekaCurrentFields=[];omMediaFiles=[];$('#omMediaList').textContent='Nenhuma mídia selecionada.';omRenderProperties();$('#omEditorView').hidden=false;$('#omListView').hidden=true;$('#omNewItem').textContent='← Voltar à lista';window.scrollTo({top:0,behavior:'smooth'})};
- $('#identifyUpload').onclick=()=>$('#moduleFile').click();
+ const legacyIdentifyUpload=$('#identifyUpload');if(legacyIdentifyUpload)legacyIdentifyUpload.onclick=()=>$('#moduleFile').click();
  $('#homeCamera').onclick=()=>{window.page('identify');$('#moduleCamera').click()};
  $('#homeTiff').onclick=()=>{window.page('identify');$('#moduleFile').accept='.tif,.tiff';$('#moduleFile').click();$('#moduleFile').accept='.docx,.pdf,.jpg,.jpeg,.png,.webp,.tif,.tiff'};
  $('#openEntityList').onclick=()=>window.page('entities');
