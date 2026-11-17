@@ -95,7 +95,9 @@ async function saveValidatedSourceToCloud(source){
 async function saveValidatedRelationToCloud(relation){
  const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
  if(relation.status!=='Validada')return;
- for(const entityId of [relation.subject,relation.object]){const entity=state.entities.find(e=>e.id===entityId);if(entity?.status==='Validada')await saveValidatedEntityToCloud(entity)}
+ const endpoints=[relation.subject,relation.object].map(entityId=>state.entities.find(e=>e.id===entityId));
+ if(endpoints.length!==2||endpoints.some(entity=>!entity||entity.status!=='Validada'))throw new Error('Uma relação só pode ser sincronizada quando as duas entidades estiverem validadas.');
+ for(const entity of endpoints)await saveValidatedEntityToCloud(entity);
  const payload={id:relation.id,subject:relation.subject,predicate:relation.predicate,object:relation.object,evidence:relation.evidence||'',source_id:relation.source_id||'',status:'Validada',updated_at:new Date().toISOString()};
  await f.dbApi.setDoc(f.dbApi.doc(f.db,'relations',relation.id),payload,{merge:true});
 }
@@ -111,7 +113,8 @@ async function loadValidatedRecordsFromCloud(){
   f.dbApi.getDocs(f.dbApi.collection(f.db,'sources'))
  ]);
  const cloudEntities=entitiesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.name&&x.status==='Validada');
- const cloudRelations=relationsSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.subject&&x?.object&&x?.predicate&&x.status==='Validada');
+ const validCloudEntityIds=new Set(cloudEntities.map(x=>x.id));
+ const cloudRelations=relationsSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.subject&&x?.object&&x?.predicate&&x.status==='Validada'&&validCloudEntityIds.has(x.subject)&&validCloudEntityIds.has(x.object));
  const cloudSources=sourcesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x.status==='Validada');
  cloudSources.forEach(x=>{const local=state.sources.find(s=>s.id===x.id);if(local)Object.assign(local,{status:'Validada',mentions:Array.isArray(x.mentions)?x.mentions:[],mention_count:Number(x.mention_count)||0,validated_at:x.validated_at});else state.sources.push({...x,text:'',blocks:[],entity_count:Number(x.mention_count)||0})});
  const entityMap=new Map(state.entities.map(x=>[x.id,x]));
@@ -128,8 +131,9 @@ function renderGraphEditor(){
  const valid=state.entities.filter(e=>e.status==='Validada');
  const focused=valid.find(e=>e.id===relationFocusId)||null;
  if(!focused)relationFocusId=null;
+ const validRelationRecords=state.relations.filter(r=>r.status==='Validada'&&valid.some(e=>e.id===r.subject)&&valid.some(e=>e.id===r.object));
  const counts=new Map(valid.map(e=>[e.id,0]));
- state.relations.forEach(r=>{if(counts.has(r.subject))counts.set(r.subject,counts.get(r.subject)+1);if(counts.has(r.object))counts.set(r.object,counts.get(r.object)+1)});
+ validRelationRecords.forEach(r=>{if(counts.has(r.subject))counts.set(r.subject,counts.get(r.subject)+1);if(counts.has(r.object))counts.set(r.object,counts.get(r.object)+1)});
  const sortedValid=valid.slice().filter(e=>(!relationSearch||String(e.name||'').toLocaleLowerCase('pt-BR').includes(relationSearch.toLocaleLowerCase('pt-BR')))&&(!relationTypeFilter||e.type===relationTypeFilter)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR',{sensitivity:'base',numeric:true}));
  const typeOptions=[...new Set(valid.map(e=>e.type).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'})).map(t=>'<option value="'+esc(t)+'" '+(relationTypeFilter===t?'selected':'')+'>'+esc(t)+'</option>').join('');
  const pageSize=15,totalPages=Math.max(1,Math.ceil(sortedValid.length/pageSize));relationListPage=Math.min(relationListPage,totalPages-1);
@@ -520,18 +524,32 @@ render();
  window.page('identify');
 })();
 
-// Zera os dados locais deste aplicativo. A ação não pode ser desfeita.
+// Zera os dados locais e as coleções operacionais do Firebase. Mantém contas e perfis de acesso.
 const resetButton=$('#resetApp');
-if(resetButton)resetButton.onclick=()=>{
- if(!confirm('ATENÇÃO: isso apagará fontes, entidades, relações, descrições, notas e a base de conhecimento deste navegador. Exporte um backup antes. Deseja continuar?'))return;
- if(!confirm('Confirma definitivamente apagar todos os dados locais do Sistema RiC?'))return;
- localStorage.removeItem(KEY);
- localStorage.removeItem('ric_knowledge_local_v1');
- state=emptyState();
- saveState();
- render();
- page('identify');
- alert('Dados do aplicativo apagados. Sua sessão administrativa foi mantida.');
+if(resetButton)resetButton.onclick=async()=>{
+ if(!confirm('ATENÇÃO: esta ação apagará os dados locais e os registros do Sistema RiC no Firebase (entidades, relações, fontes e grafo público). As contas e os perfis de administrador serão preservados. Exporte um backup antes. Deseja continuar?'))return;
+ if(prompt('Para confirmar a limpeza local e remota, digite ZERAR:')!=='ZERAR')return;
+ const f=window.RiCFirebase;
+ if(!f?.auth?.currentUser){alert('Entre como administrador no Firebase antes de zerar o aplicativo. Nenhum dado foi apagado.');return}
+ resetButton.disabled=true;const originalLabel=resetButton.textContent;resetButton.textContent='Zerando…';
+ try{
+  const collections=['entities','relations','sources','public_entities','public_relations'];
+  let removed=0;
+  for(const name of collections){
+   const snap=await f.dbApi.getDocs(f.dbApi.collection(f.db,name));
+   for(const docSnap of snap.docs){await f.dbApi.deleteDoc(docSnap.ref);removed++}
+  }
+  // Remove somente chaves locais do Sistema RiC; a sessão Firebase permanece intacta.
+  for(const key of Object.keys(localStorage)){if(key.startsWith('ric_'))localStorage.removeItem(key)}
+  localStorage.removeItem(KEY);localStorage.removeItem('ric_knowledge_local_v1');
+  state=emptyState();saveState();
+  if(typeof db!=='undefined'&&Array.isArray(db)){db=[];localStorage.removeItem('ric_guided_research_v1');localStorage.removeItem('ric_guided_active_id')}
+  relationFocusId=null;relationListPage=0;relationSearch='';relationTypeFilter='';
+  render();page('identify');
+  alert('Sistema RiC zerado. '+removed+' registro(s) removido(s) do Firebase. Contas e perfis de acesso foram preservados.');
+ }catch(err){
+  alert('A limpeza não foi concluída. Pode haver exclusões parciais no Firebase. Erro: '+(err.code||err.message)+'. Confira as permissões e tente novamente.');
+ }finally{resetButton.disabled=false;resetButton.textContent=originalLabel}
 };
 
 /* Instalação como aplicativo (PWA) e cache básico da interface */
