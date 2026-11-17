@@ -402,7 +402,7 @@ render();
   const groups=new Map();
   state.sources.filter(s=>s.status==='Validada').forEach(s=>{
    const mentions=Array.isArray(s.mentions)?s.mentions:state.entities.filter(e=>e.source_id===s.id&&e.status==='Validada').map(e=>({mention_id:e.id,entity_id:e.id,name:e.name,type:e.type,source_excerpt:e.source_excerpt}));
-   mentions.forEach(m=>{const key=String(m.type||'Entidade').trim().toLocaleLowerCase('pt-BR')+'|'+String(m.name||'').trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\\s+/g,' ');if(!m.name)return;let g=groups.get(key);if(!g){g={name:m.name,type:m.type||'Entidade',mentions:0,sources:new Map(),examples:[]};groups.set(key,g)}g.mentions++;g.sources.set(s.id,s.title||s.filename);if(g.examples.length<3&&m.source_excerpt)g.examples.push(m.source_excerpt)});
+   mentions.forEach(m=>{const key=String(m.type||'Entidade').trim().toLocaleLowerCase('pt-BR')+'|'+String(m.name||'').trim().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');if(!m.name)return;let g=groups.get(key);if(!g){g={name:m.name,type:m.type||'Entidade',mentions:0,sources:new Map(),examples:[]};groups.set(key,g)}g.mentions++;g.sources.set(s.id,s.title||s.filename);if(g.examples.length<3&&m.source_excerpt)g.examples.push(m.source_excerpt)});
   });
   const itemRows=[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name,'pt-BR',{sensitivity:'base'}));
   const itemPanel=$('#consolidatedItemsPanel');
@@ -458,10 +458,10 @@ render();
   for(const target of orientation.targets||[])for(const term of (target.terms||'').split(/[,;|\\n]/).map(x=>x.trim()).filter(Boolean))terms.push({name:term,type:target.category||'Entidade',role:'Critério da orientação'});
   const found=[],seen=new Set(),lower=text.toLocaleLowerCase('pt-BR');
   for(const item of terms){const term=String(item.name||'').trim();if(term.length<2)continue;const q=term.toLocaleLowerCase('pt-BR');let at=0,count=0;
-   while((at=lower.indexOf(q,at))>=0&&count++<100){const before=at===0?'':text[at-1],after=text[at+term.length]||'';if(/[\\p{L}\\p{N}_]/u.test(before)||/[\\p{L}\\p{N}_]/u.test(after)){at+=q.length;continue}
+   while((at=lower.indexOf(q,at))>=0&&count++<100){const before=at===0?'':text[at-1],after=text[at+term.length]||'';if(/[\p{L}\p{N}_]/u.test(before)||/[\p{L}\p{N}_]/u.test(after)){at+=q.length;continue}
     const key=item.type+'|'+q+'|'+at;if(seen.has(key)){at+=q.length;continue}seen.add(key);
-    const excerpt=text.slice(Math.max(0,at-260),Math.min(text.length,at+term.length+340)).replace(/\\s+/g,' ');
-    const pageMatch=text.slice(0,at).match(/\\[Página (\\d+)\\]/g),page=pageMatch?.length?pageMatch[pageMatch.length-1].match(/\\d+/)?.[0]:null;
+    const excerpt=text.slice(Math.max(0,at-260),Math.min(text.length,at+term.length+340)).replace(/\s+/g,' ');
+    const pageMatch=text.slice(0,at).match(/\[Página (\d+)\]/g),page=pageMatch?.length?pageMatch[pageMatch.length-1].match(/\\d+/)?.[0]:null;
     found.push({id:id(),name:term,type:item.type,source_id:sid,source_excerpt:excerpt,position:at,page,confidence:'Média',status:'Pendente',evidence:item.role+' localizada conforme a orientação “'+(orientation.name||'Pesquisa orientada')+'”. Conferir o contexto e validar a identificação.',variants:[],orientation_id:orientation.id,orientation_name:orientation.name});
     at+=q.length;
    }
