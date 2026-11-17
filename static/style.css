@@ -592,3 +592,21 @@ button:disabled{cursor:not-allowed}
  .photo-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
  .photo-actions #chooseDocument{grid-column:auto}
 }
+
+
+/* Ação de saída sempre acessível em tablet e celular */
+@media(max-width:900px){
+ main header .headright #logoutAdmin:not([hidden]){
+  display:inline-flex!important;align-items:center;justify-content:center;
+  order:-1;flex:0 0 auto;min-width:64px;min-height:38px;
+  background:#fff;border:1px solid #d9e3e8;border-radius:8px;
+  color:#36566a;font-weight:700
+ }
+ main header .headright #logoutAdmin[hidden]{display:none!important}
+}
+@media(max-width:600px){
+ main header .headright #logoutAdmin:not([hidden]){
+  position:sticky;left:0;z-index:2;min-width:70px;min-height:40px;
+  box-shadow:3px 0 8px #f6f8f9
+ }
+}
