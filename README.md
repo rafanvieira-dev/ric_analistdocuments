@@ -1,33 +1,56 @@
-# Sistema RiC — descrição arquivística local
+# Sistema RiC — descrição e análise arquivística
 
-Aplicação local de apoio à descrição arquivística orientada pelo RiC-CM 1.0. **Não utiliza IA, API externa ou envio de documentos para serviços de terceiros.**
+Aplicação web de apoio à identificação de entidades, revisão de evidências, construção de relações e preparação de descrições arquivísticas. A interface principal está em `static/` e utiliza Firebase Authentication e Cloud Firestore para autenticação e sincronização seletiva.
 
-## Executar
+## Estado funcional atual
+
+- Autenticação administrativa por Firebase Authentication e perfil `users/{uid}` no Firestore.
+- Consulta pública de entidades e relações publicadas.
+- Importação de DOCX e PDF pesquisável.
+- OCR no navegador para imagens (JPG, PNG, WEBP) e TIFF; TIFF também gera PDF pesquisável.
+- Extração lexical de candidatos a entidades. A identificação não é semântica e exige validação humana.
+- Revisão de menções, consolidação por nome normalizado e tipo, fontes e evidências.
+- Cadastro e validação de relações; grafo interativo com D3.js.
+- Formulários de descrição geral, LABOGAD e RiC-CM 1.0; exportação da tabela RiC-CM em PDF.
+- Preparação de rascunhos Omeka S e exportação em JSON. **Não há integração de gravação com a API do Omeka S nesta versão.**
+- Exportação e restauração de backup JSON.
+- Instalação como PWA.
+
+## Armazenamento e sincronização
+
+O espaço de trabalho local é guardado no `localStorage` do navegador. Textos completos de fontes, menções pendentes, notas, descrições e rascunhos Omeka permanecem locais. O Firestore sincroniza entidades, relações e fontes validadas, além das coleções públicas. Portanto, **a sincronização ainda não é integral entre dispositivos**. Faça exportações de backup antes de operações de manutenção ou limpeza.
+
+A base de conhecimento em `static/knowledge.html` armazena os documentos importados no navegador. O módulo Python (`app.py` e `knowledge_base.py`) é uma implementação local/legada separada, com armazenamento em `data/workspace.json`; suas rotas não são a persistência da interface Firebase principal.
+
+## Executar a implementação Python local/legada
+
 - Python 3.9 ou superior.
 - Instale as dependências: `python -m pip install -r requirements.txt`.
 - Windows: execute `iniciar_windows.bat`.
 - Linux/macOS: `chmod +x iniciar_linux_mac.sh && ./iniciar_linux_mac.sh`.
-- Acesse http://127.0.0.1:8765.
+- Acesse `http://127.0.0.1:8765`.
 
-## Base de conhecimento interna
-Coloque os documentos de referência na pasta `conhecimento/fontes/`:
-- RiC-CM 1.0 (PDF com texto selecionável);
-- Cartilha metodológica LABOGAD (PDF com texto selecionável);
-- Crosswalk ICA–RiC-CM (XLSX);
-- outros documentos metodológicos que queira consultar (PDF, DOCX, XLSX, TXT ou MD).
+Essa execução local não substitui a configuração Firebase usada pela aplicação web publicada.
 
-Abra **Base de conhecimento** na navegação e pesquise termos. Cada resultado informa o arquivo e a página, parágrafo, linha ou aba de origem. A indexação é local e feita sob demanda. A pasta contém apenas um arquivo .gitkeep no repositório; os documentos de referência devem ser adicionados localmente pelo usuário.
+## Regras de segurança do Firestore
 
-## Análise documental
-A tela de importação aceita DOCX e PDF com texto selecionável. O sistema extrai candidatos por vocabulários lexicais e padrões, registra trechos de evidência e permite revisão humana. PDF digitalizado (imagem) ainda exige OCR e não é suportado nesta etapa.
+O arquivo `firestore.rules` contém uma política de referência para permitir leitura e escrita das coleções internas somente a administradores ativos, manter as coleções públicas legíveis e restringir a gestão de perfis. **Adicionar o arquivo ao GitHub não publica as regras no Firebase.** Revise o conteúdo e aplique-o ao projeto Firebase correto antes de considerar a proteção ativa:
 
-## Limites importantes
-- Não é IA nem compreensão semântica.
-- Menções e resultados de busca não comprovam fatos, identidade, autoria ou relações.
-- A classificação por regras pode gerar falsos positivos e omissões.
-- As relações continuam dependentes de revisão e registro humano.
-- Não há, nesta etapa, serialização completa de todos os elementos RiC-CM, OCR, autenticação, publicação ou integração Omeka S.
-- A base de conhecimento atual realiza busca lexical por frequência de termos, não uma avaliação conceitual ou historiográfica.
+```bash
+firebase deploy --only firestore:rules
+```
 
-## Dados e segurança
-Os dados do espaço de trabalho ficam em `data/workspace.json`. O servidor escuta apenas em `127.0.0.1`. Não exponha à internet sem autenticação, autorização, proteção contra requisições maliciosas, backup e revisão de segurança.
+O primeiro perfil administrativo deve ser provisionado de forma segura no documento `users/{uid}` correspondente ao UID do Firebase Authentication. Não habilite regras permissivas como `allow read, write: if true`.
+
+## Limitações conhecidas e próximos passos
+
+1. A extração de entidades é baseada em listas e expressões; pode omitir nomes desconhecidos e gerar falsos positivos.
+2. A consolidação automática usa nome normalizado + tipo. Homônimos podem exigir decisão humana; não trate a correspondência lexical como prova de identidade.
+3. Descrições, notas e rascunhos Omeka ainda precisam de persistência remota para uso confiável em vários dispositivos.
+4. A integração Omeka S precisa de endpoint, credenciais, mapeamento de vocabulários e envio de mídias.
+5. A base de conhecimento usa busca lexical, não busca semântica nem análise historiográfica.
+6. Recomenda-se criar testes automatizados, backup versionado, trilha de auditoria e rotina de reconciliação de dados antes de uso institucional.
+
+## Privacidade
+
+O OCR e a extração no navegador processam os arquivos localmente. Não envie documentos sigilosos para ambientes compartilhados sem avaliar as políticas de acesso, retenção, backup e proteção de dados do projeto Firebase.

@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownProfilePath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function activeAdmin() {
+      return signedIn()
+        && exists(ownProfilePath())
+        && get(ownProfilePath()).data.active == true
+        && get(ownProfilePath()).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      // Cada usuário pode consultar o próprio perfil para validar a sessão.
+      // Administradores ativos podem consultar e administrar os perfis.
+      allow get: if signedIn() && (request.auth.uid == uid || activeAdmin());
+      allow list, create, update, delete: if activeAdmin();
+    }
+
+    match /entities/{id} {
+      allow read, write: if activeAdmin();
+    }
+
+    match /relations/{id} {
+      allow read, write: if activeAdmin();
+    }
+
+    match /sources/{id} {
+      allow read, write: if activeAdmin();
+    }
+
+    match /public_entities/{id} {
+      allow read: if true;
+      allow write: if activeAdmin();
+    }
+
+    match /public_relations/{id} {
+      allow read: if true;
+      allow write: if activeAdmin();
+    }
+
+    // Qualquer coleção não explicitamente autorizada permanece bloqueada.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
