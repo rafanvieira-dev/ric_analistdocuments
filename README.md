@@ -37,7 +37,7 @@ Essa execução local não substitui a configuração Firebase usada pela aplica
 O arquivo `firestore.rules` contém uma política de referência para permitir leitura e escrita das coleções internas somente a administradores ativos, manter as coleções públicas legíveis e restringir a gestão de perfis. **Adicionar o arquivo ao GitHub não publica as regras no Firebase.** Revise o conteúdo e aplique-o ao projeto Firebase correto antes de considerar a proteção ativa:
 
 ```bash
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules --project sistema-ric-estacio
 ```
 
 O primeiro perfil administrativo deve ser provisionado de forma segura no documento `users/{uid}` correspondente ao UID do Firebase Authentication. Não habilite regras permissivas como `allow read, write: if true`.
