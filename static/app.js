@@ -106,6 +106,34 @@ async function deleteRelationFromCloud(relationId){
  const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
  await f.dbApi.deleteDoc(f.dbApi.doc(f.db,'relations',relationId));
 }
+function mergeEntityRecord(target,incoming){
+ const mentions=new Map();
+ const addMentions=(items,legacy)=>{(Array.isArray(items)&&items.length?items:[legacy].filter(Boolean)).forEach(m=>{
+  const normalized={...m,status:m.status||'Validada'};
+  const key=String(normalized.id||normalized.mention_id||[normalized.source_id||'',normalized.position??'',normalized.source_excerpt||''].join('|'));
+  const old=mentions.get(key);
+  mentions.set(key,old?{...old,...normalized,status:old.status==='Validada'||normalized.status==='Validada'?'Validada':normalized.status}:normalized);
+ })};
+ addMentions(target.mentions,{id:target.id,source_id:target.source_id,source_excerpt:target.source_excerpt,position:target.position,status:target.status||'Pendente'});
+ addMentions(incoming.mentions,{id:incoming.id,source_id:incoming.source_id,source_excerpt:incoming.source_excerpt,position:incoming.position,status:incoming.status||'Validada'});
+ target.mentions=[...mentions.values()];
+ target.source_ids=[...new Set([...(target.source_ids||[]),...(incoming.source_ids||[]),target.source_id,incoming.source_id].filter(Boolean))];
+ if(!target.source_id)target.source_id=incoming.source_id||target.source_ids[0]||'';
+ if(!target.source_excerpt)target.source_excerpt=incoming.source_excerpt||'';
+ if(!target.evidence)target.evidence=incoming.evidence||'';
+ target.status=target.mentions.some(m=>m.status==='Validada')?'Validada':target.mentions.length&&target.mentions.every(m=>m.status==='Rejeitada')?'Rejeitada':'Pendente';
+ return target;
+}
+function remapEntityReferences(idMap){
+ const remap=id=>idMap.get(id)||id;
+ state.relations=(state.relations||[]).map(r=>({...r,subject:remap(r.subject),object:remap(r.object)}));
+ const seen=new Set();
+ state.relations=state.relations.filter(r=>{const key=[r.subject,r.predicate,r.object].join('|');if(seen.has(key))return false;seen.add(key);return true});
+ for(const key of ['descriptions','labDescriptions','ricDescriptions','omekaDrafts']){
+  (state[key]||[]).forEach(item=>{if(item.entity_id)item.entity_id=remap(item.entity_id)});
+ }
+ (state.sources||[]).forEach(source=>(source.mentions||[]).forEach(m=>{if(m.entity_id)m.entity_id=remap(m.entity_id)}));
+}
 async function loadValidatedRecordsFromCloud(){
  const f=window.RiCFirebase;if(!f?.auth?.currentUser)throw new Error('Sessão Firebase não disponível.');
  const [entitiesSnap,relationsSnap,sourcesSnap]=await Promise.all([
@@ -116,12 +144,40 @@ async function loadValidatedRecordsFromCloud(){
  const cloudEntities=entitiesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.name&&x.status==='Validada');
  const cloudRelations=relationsSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x?.subject&&x?.object&&x?.predicate&&x.status==='Validada');
  const cloudSources=sourcesSnap.docs.map(d=>d.data()).filter(x=>x?.id&&x.status==='Validada');
- cloudSources.forEach(x=>{const local=state.sources.find(s=>s.id===x.id);if(local)Object.assign(local,{status:'Validada',mentions:Array.isArray(x.mentions)?x.mentions:[],mention_count:Number(x.mention_count)||0,validated_at:x.validated_at});else state.sources.push({...x,text:'',blocks:[],entity_count:Number(x.mention_count)||0})});
- const entityMap=new Map(state.entities.map(x=>[x.id,x]));
- cloudEntities.forEach(x=>{const local=entityMap.get(x.id);if(local)Object.assign(local,{name:x.name,type:x.type||local.type,status:'Validada',source_ids:x.source_ids||local.source_ids,mentions:Array.isArray(x.mentions)&&x.mentions.length?x.mentions:local.mentions});else state.entities.push({...x,source_excerpt:'',evidence:'Registro sincronizado do Firebase',confidence:'—'})});
- const relationMap=new Map(state.relations.map(x=>[x.id,x]));
- cloudRelations.forEach(x=>{const local=relationMap.get(x.id);if(local)Object.assign(local,x);else state.relations.push(x)});
- // Migra para a nuvem os registros já validados que ainda existiam somente neste navegador.
+ const idMap=new Map(),canonicalByKey=new Map();
+ // Consolida duplicatas locais antigas por nome normalizado + tipo, preservando ocorrências.
+ const localEntities=[];
+ state.entities.forEach(entity=>{
+  const key=normalizeEntityKey(entity.name,entity.type),canonical=canonicalByKey.get(key);
+  if(canonical){idMap.set(entity.id,canonical.id);mergeEntityRecord(canonical,entity)}
+  else{canonicalByKey.set(key,entity);localEntities.push(entity)}
+ });
+ state.entities=localEntities;
+ cloudEntities.forEach(remote=>{
+  const key=normalizeEntityKey(remote.name,remote.type),local=state.entities.find(e=>e.id===remote.id)||canonicalByKey.get(key);
+  if(local){idMap.set(remote.id,local.id);mergeEntityRecord(local,remote)}
+  else{
+   const created={...remote,source_excerpt:remote.source_excerpt||'',evidence:remote.evidence||'Registro sincronizado do Firebase',confidence:remote.confidence||'—'};
+   state.entities.push(created);canonicalByKey.set(key,created);idMap.set(remote.id,created.id);
+  }
+ });
+ remapEntityReferences(idMap);
+ // Mescla fontes sem apagar texto completo já armazenado localmente.
+ cloudSources.forEach(remote=>{
+  const local=state.sources.find(s=>s.id===remote.id);
+  if(local)Object.assign(local,{...remote,text:local.text||'',blocks:local.blocks||[],status:'Validada'});
+  else state.sources.push({...remote,text:'',blocks:[],entity_count:Number(remote.mention_count)||0});
+ });
+ // Reaplica o mapeamento também às relações vindas da nuvem e elimina duplicatas locais.
+ const relationById=new Map(state.relations.map(r=>[r.id,r]));
+ cloudRelations.forEach(remote=>{
+  const mapped={...remote,subject:idMap.get(remote.subject)||remote.subject,object:idMap.get(remote.object)||remote.object};
+  const existing=relationById.get(mapped.id)||state.relations.find(r=>r.subject===mapped.subject&&r.object===mapped.object&&r.predicate===mapped.predicate);
+  if(existing)Object.assign(existing,mapped);
+  else{state.relations.push(mapped);relationById.set(mapped.id,mapped)}
+ });
+ remapEntityReferences(new Map());
+ // Migra para a nuvem registros validados que existiam somente neste navegador.
  for(const entity of state.entities.filter(x=>x.status==='Validada'))await saveValidatedEntityToCloud(entity);
  for(const relation of state.relations.filter(x=>x.status==='Validada'))await saveValidatedRelationToCloud(relation);
  saveState();

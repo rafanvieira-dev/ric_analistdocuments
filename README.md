@@ -45,7 +45,7 @@ O primeiro perfil administrativo deve ser provisionado de forma segura no docume
 ## Limitações conhecidas e próximos passos
 
 1. A extração de entidades é baseada em listas e expressões; pode omitir nomes desconhecidos e gerar falsos positivos.
-2. A consolidação automática usa nome normalizado + tipo. Homônimos podem exigir decisão humana; não trate a correspondência lexical como prova de identidade.
+2. A consolidação automática usa nome normalizado + tipo, inclusive ao carregar registros locais e remotos. Homônimos podem exigir decisão humana; não trate a correspondência lexical como prova de identidade. A reconciliação evita duplicatas na sessão, mas não exclui documentos remotos antigos automaticamente.
 3. Descrições, notas e rascunhos Omeka ainda precisam de persistência remota para uso confiável em vários dispositivos.
 4. A integração Omeka S precisa de endpoint, credenciais, mapeamento de vocabulários e envio de mídias.
 5. A base de conhecimento usa busca lexical, não busca semântica nem análise historiográfica.
