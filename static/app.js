@@ -176,7 +176,7 @@ async function loadValidatedRecordsFromCloud(){
   if(existing)Object.assign(existing,mapped);
   else{state.relations.push(mapped);relationById.set(mapped.id,mapped)}
  });
- remapEntityReferences(new Map());
+ remapEntityReferences(idMap);
  // Migra para a nuvem registros validados que existiam somente neste navegador.
  for(const entity of state.entities.filter(x=>x.status==='Validada'))await saveValidatedEntityToCloud(entity);
  for(const relation of state.relations.filter(x=>x.status==='Validada'))await saveValidatedRelationToCloud(relation);
