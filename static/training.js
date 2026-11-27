@@ -1,46 +1,119 @@
-/* Simulador didático Omeka S — armazenamento isolado do acervo RiC. */
+/* Simulador Omeka S para treinamento. Dados isolados em localStorage próprio. */
 (()=>{
- const KEY='ric_omeka_training_v1';
- const models=[['Documento','rico:Record'],['Parte de documento','rico:RecordPart'],['Representação','rico:Instantiation'],['Conjunto documental','rico:RecordSet'],['Pessoa','rico:Person'],['Grupo','rico:Group'],['Organização','rico:CorporateBody'],['Evento','rico:Event'],['Atividade','rico:Activity'],['Local','rico:Place'],['Data','rico:Date']];
- const vocab=['Espécie documental','Tipo de conteúdo','Estado do documento','Tipo de conjunto','Tipo de suporte','Tipo de representação','Técnica de produção','Ocupação','Tipo de organização','Tipo de família','Tipo de evento','Tipo de atividade','Tipo de local','Tipo de data','Situação jurídica'];
- const exercises=[
-  {title:'Criar um documento',goal:'Cadastre um recurso da classe Documento e escolha o modelo correspondente.',hint:'Observe a diferença entre o documento intelectual e sua representação digital.'},
-  {title:'Relacionar uma pessoa',goal:'Crie ou reutilize uma Pessoa e associe-a ao documento como entidade relacionada.',hint:'Evite duplicar entidades já existentes. Confira a identidade antes de reutilizar.'},
-  {title:'Criar um evento',goal:'Cadastre um Evento e registre sua relação com o documento.',hint:'Não confunda a data do evento com a data de criação ou de produção do documento.'},
-  {title:'Adicionar uma representação',goal:'Crie uma Representação e associe-a ao documento.',hint:'O arquivo digital é uma representação; não substitui o recurso documental.'}
+ const KEY='ric_omeka_training_v2';
+ const models=[
+  {label:'Acervo',cls:'rico:RecordResource',fields:['dcterms:title','dcterms:description','rico:hasOrHadPart','rico:hasOrHadMember']},
+  {label:'Acervo (Documento)',cls:'rico:Record',fields:['dcterms:title','dcterms:description','rico:recordResourceExtent','rico:hasOrHadSubject','rico:hasOrHadProducer','rico:hasOrHadCreationDate']},
+  {label:'Acervo (Parte de documento)',cls:'rico:RecordPart',fields:['dcterms:title','dcterms:description','rico:isOrWasPartOf','rico:hasOrHadInstantiation']},
+  {label:'Acervo (série de documentos)',cls:'rico:RecordSet',fields:['dcterms:title','dcterms:description','rico:recordSetType','rico:hasOrHadMember']},
+  {label:'Coisa (Tema amplo do acervo)',cls:'rico:Thing',fields:['dcterms:title','dcterms:description','rico:thingType']},
+  {label:'Instantiation',cls:'rico:Instantiation',fields:['dcterms:title','dcterms:description','rico:instantiationPhysicalCharacteristics','rico:hasOrHadCarrierType','rico:hasOrHadDigitalInstantiation']},
+  {label:'Linguagem',cls:'rico:Language',fields:['dcterms:title','rico:languageType']},
+  {label:'O Que (Atividade)',cls:'rico:Activity',fields:['dcterms:title','dcterms:description','rico:activityType','rico:activityDate']},
+  {label:'O Que (Evento)',cls:'rico:Event',fields:['dcterms:title','dcterms:description','rico:eventType','rico:date']},
+  {label:'Onde',cls:'rico:Place',fields:['dcterms:title','dcterms:description','rico:placeType','rico:geographicalCoordinates']},
+  {label:'Quando',cls:'rico:Date',fields:['dcterms:title','rico:date','rico:dateType']},
+  {label:'Quem (Agent)',cls:'rico:Agent',fields:['dcterms:title','dcterms:description','rico:occupationalHistory']},
+  {label:'Quem (Família ou Grupo)',cls:'rico:Group',fields:['dcterms:title','dcterms:description','rico:groupType']},
+  {label:'Quem (Organização)',cls:'rico:CorporateBody',fields:['dcterms:title','dcterms:description','rico:corporateBodyType']},
+  {label:'Quem (Pessoa)',cls:'rico:Person',fields:['dcterms:title','dcterms:description','rico:personBiographicalHistory','rico:occupationalHistory']}
  ];
- let data=load();
- function load(){try{return JSON.parse(localStorage.getItem(KEY))||{items:[],done:[],active:0}}catch(e){return {items:[],done:[],active:0}}}
- function save(){try{localStorage.setItem(KEY,JSON.stringify(data));return true}catch(e){alert('Não foi possível salvar o treinamento neste navegador.');return false}}
+ const vocab=['Espécie documental','Tipo de conteúdo','Estado do documento','Tipo de conjunto','Tipo de suporte','Tipo de representação','Técnica de produção','Ocupação','Tipo de organização','Tipo de família','Tipo de evento','Tipo de atividade','Tipo de local','Tipo de data','Situação jurídica'];
+ const propInfo={
+ 'dcterms:title':['Title','A name given to the resource.','Título atribuído ao recurso.'],
+ 'dcterms:description':['Description','An account of the resource.','Descrição ou resumo do recurso.'],
+ 'rico:hasOrHadPart':['Has or had part','Relates a resource to a part.','Relaciona o documento a uma de suas partes.'],
+ 'rico:hasOrHadMember':['Has or had member','Relates a set to a member.','Relaciona um conjunto documental aos seus membros.'],
+ 'rico:recordResourceExtent':['Record resource extent','The extent of the record resource.','Dimensão e suporte do recurso documental.'],
+ 'rico:hasOrHadSubject':['Has or had subject','Subject associated with the record.','Assunto documentado pela fonte.'],
+ 'rico:hasOrHadProducer':['Has or had producer','Agent responsible for production.','Agente responsável pela produção.'],
+ 'rico:hasOrHadCreationDate':['Has or had creation date','Creation date of the resource.','Data de criação do recurso.'],
+ 'rico:isOrWasPartOf':['Is or was part of','The larger resource.','Recurso documental do qual esta parte faz parte.'],
+ 'rico:hasOrHadInstantiation':['Has or had instantiation','An instantiation of the record.','Representação do documento.'],
+ 'rico:recordSetType':['Record set type','Type of record set.','Tipo de conjunto documental.'],
+ 'rico:thingType':['Thing type','Type of thing.','Tipo de coisa ou tema.'],
+ 'rico:instantiationPhysicalCharacteristics':['Physical characteristics','Physical or technical characteristics.','Características físicas ou técnicas da representação.'],
+ 'rico:hasOrHadCarrierType':['Has or had carrier type','Carrier of the instantiation.','Tipo de suporte.'],
+ 'rico:hasOrHadDigitalInstantiation':['Has or had digital instantiation','Digital representation.','Representação digital.'],
+ 'rico:languageType':['Language type','Language used in the resource.','Idioma do recurso.'],
+ 'rico:activityType':['Activity type','Type of activity.','Tipo de atividade.'],
+ 'rico:activityDate':['Activity date','Date of the activity.','Data da atividade.'],
+ 'rico:eventType':['Event type','Type of event.','Tipo de evento.'],
+ 'rico:date':['Date','Date associated with the entity.','Data ou período associado.'],
+ 'rico:placeType':['Place type','Type of place.','Tipo de local.'],
+ 'rico:geographicalCoordinates':['Geographical coordinates','Coordinates of the place.','Coordenadas geográficas do local.'],
+ 'rico:dateType':['Date type','Type of date.','Tipo de data.'],
+ 'rico:occupationalHistory':['Occupational history','Occupations of the agent.','Ocupações exercidas pelo agente.'],
+ 'rico:groupType':['Group type','Type of group.','Tipo de família ou grupo.'],
+ 'rico:corporateBodyType':['Corporate body type','Type of organization.','Tipo de organização.'],
+ 'rico:personBiographicalHistory':['Biographical history','Biographical information.','Informações biográficas da pessoa.']
+ };
+ const initialTemplates=models.map(m=>({label:m.label,cls:m.cls,fields:m.fields}));
+ let db=load(),page='items',editId=null,selectedProps=[],activeTab='values';
+ function load(){try{return JSON.parse(localStorage.getItem(KEY))||{items:[],media:[],sets:[],templates:initialTemplates,vocabs:vocab.map(x=>({label:x,terms:[]})),done:[]}}catch(e){return {items:[],media:[],sets:[],templates:initialTemplates,vocabs:vocab.map(x=>({label:x,terms:[]})),done:[]}}}
+ function save(){try{localStorage.setItem(KEY,JSON.stringify(db));return true}catch(e){alert('Não foi possível salvar no armazenamento deste navegador.');return false}}
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const $=s=>document.querySelector(s);
- const host=document.querySelector('.module-nav'),main=document.querySelector('main');
- if(!host||!main||$('#training'))return;
- const nav=document.createElement('button');nav.className='nav module-link';nav.dataset.page='training';nav.innerHTML='<span class="module-num">05</span><span>Treinamento</span>';host.appendChild(nav);
- const section=document.createElement('section');section.id='training';section.className='page';
- section.innerHTML=
- '<div class="toolbar"><div><span class="eyebrow">AMBIENTE DE APRENDIZAGEM · SEM CONEXÃO COM O ACERVO REAL</span><h2>Treinamento Omeka S</h2><p>Pratique os procedimentos de cadastro e descrição antes de operar o Omeka S.</p></div><span class="pill">MODO DE SIMULAÇÃO</span></div>'+
- '<div class="training-alert"><b>Ambiente independente</b><span>Os dados criados aqui ficam separados do Sistema RiC e não são enviados ao Omeka S real nem ao Firebase.</span></div>'+
- '<div class="training-stats"><div><small>ITENS DE TREINO</small><strong id="trCount">0</strong></div><div><small>EXERCÍCIOS CONCLUÍDOS</small><strong id="trDone">0/4</strong></div><div><small>PROGRESSO</small><strong id="trProgress">0%</strong></div></div>'+
- '<div class="training-tabs" role="tablist"><button class="tr-tab active" data-tr-tab="items">Itens</button><button class="tr-tab" data-tr-tab="models">Modelos de recurso</button><button class="tr-tab" data-tr-tab="vocab">Vocabulários</button><button class="tr-tab" data-tr-tab="practice">Exercícios</button></div>'+
- '<div class="tr-panel" id="trItems"><div class="tr-heading"><div><h3>Itens de treinamento</h3><p>Crie recursos fictícios para praticar o fluxo de cadastro.</p></div><button class="btn primary" id="trNew">＋ Adicionar item</button></div>'+
- '<div class="tr-form" id="trForm" hidden><label>Modelo de recurso<select id="trModel">'+models.map(m=>'<option value="'+esc(m[0])+'">'+esc(m[0])+' — '+esc(m[1])+'</option>').join('')+'</select></label>'+
- '<label>Título do recurso<input id="trTitle" placeholder="Ex.: Sinopse de desfile — exercício didático"></label><label>Identificador<input id="trIdentifier" placeholder="Identificador de treinamento"></label>'+
- '<label>Descrição<textarea id="trDescription" rows="3" placeholder="Descreva o conteúdo sem apresentar hipóteses como fatos"></textarea></label><label>Data ou período<input id="trDate" placeholder="Indique a data e a incerteza, se houver"></label><label>Observações de validação<input id="trNotes" placeholder="O que precisa ser conferido?"></label>'+
- '<div class="tr-form-actions"><button class="btn primary" id="trSave">Salvar no treinamento</button><button class="btn ghost" id="trCancel">Cancelar</button></div><p class="hint">Formulário didático inicial. A correspondência campo a campo com os modelos completos será refinada a partir das propriedades e cardinalidades do anexo A da cartilha.</p></div>'+
- '<div id="trList" class="tr-list"><div class="tr-empty">Nenhum item de treinamento cadastrado.</div></div></div>'+
- '<div class="tr-panel" id="trModels" hidden><div class="tr-heading"><div><h3>Modelos de recurso</h3><p>Classes RiC-O previstas na cartilha LABOGAD.</p></div></div><div class="tr-model-grid">'+models.map(m=>'<article class="tr-model"><b>'+esc(m[0])+'</b><code>'+esc(m[1])+'</code><small>Modelo de recurso para exercício</small></article>').join('')+'</div><div class="training-alert subtle"><b>Atenção à metodologia</b><span>A cartilha define os níveis Obrigatório, Recomendado e Opcional por propriedade. Esta versão inicial não atribui esses níveis sem carregar a matriz integral de propriedades de cada modelo.</span></div></div>'+
- '<div class="tr-panel" id="trVocab" hidden><div class="tr-heading"><div><h3>Vocabulários controlados</h3><p>Categorias previstas no anexo A da cartilha.</p></div></div><div class="tr-vocab-grid">'+vocab.map(v=>'<div class="tr-vocab"><span>'+esc(v)+'</span><small>Vocabulário controlado</small></div>').join('')+'</div><p class="hint">As categorias estão listadas; os termos autorizados devem ser transcritos da cartilha completa, sem criar valores arbitrários.</p></div>'+
- '<div class="tr-panel" id="trPractice" hidden><div class="tr-heading"><div><h3>Exercícios guiados</h3><p>Pratique em etapas e confira os critérios antes de concluir.</p></div></div><div class="tr-exercise-layout"><div class="tr-exercise-list" id="trExerciseList"></div><div class="tr-exercise-detail" id="trExerciseDetail"></div></div></div>';
- const footer=main.querySelector('footer');if(footer)footer.insertAdjacentElement('beforebegin',section);else main.appendChild(section);
- function open(){if(typeof window.page==='function')window.page('training');else{document.querySelectorAll('.page').forEach(p=>p.classList.toggle('show',p.id==='training'));document.querySelectorAll('.nav').forEach(n=>n.classList.toggle('active',n.dataset.page==='training'))}$('#pagetitle').textContent='Treinamento Omeka S';render()}
- nav.addEventListener('click',open);
- section.querySelectorAll('[data-tr-tab]').forEach(b=>b.addEventListener('click',()=>tab(b.dataset.trTab)));
- function tab(name){section.querySelectorAll('.tr-tab').forEach(b=>b.classList.toggle('active',b.dataset.trTab===name));[['items','trItems'],['models','trModels'],['vocab','trVocab'],['practice','trPractice']].forEach(x=>$('#'+x[1]).hidden=x[0]!==name);if(name==='practice')renderExercises()}
- $('#trNew').addEventListener('click',()=>{$('#trForm').hidden=false;$('#trTitle').focus()});
- $('#trCancel').addEventListener('click',()=>{$('#trForm').hidden=true});
- $('#trSave').addEventListener('click',()=>{const title=$('#trTitle').value.trim();if(!title){alert('Informe o título do recurso.');return}data.items.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),model:$('#trModel').value,title,identifier:$('#trIdentifier').value.trim(),description:$('#trDescription').value.trim(),date:$('#trDate').value.trim(),notes:$('#trNotes').value.trim(),created:new Date().toLocaleString('pt-BR')});if(!save())return;['trTitle','trIdentifier','trDescription','trDate','trNotes'].forEach(id=>$('#'+id).value='');$('#trForm').hidden=true;render()});
- function render(){ $('#trCount').textContent=data.items.length;$('#trDone').textContent=data.done.length+'/4';$('#trProgress').textContent=Math.round(data.done.length/4*100)+'%';$('#trList').innerHTML=data.items.length?data.items.map(x=>'<article class="tr-item"><div><b>'+esc(x.title)+'</b><small>'+esc(x.model)+' · '+esc(x.created)+'</small><p>'+esc(x.description||'Sem descrição informada.')+'</p></div><button class="btn ghost" data-delete="'+esc(x.id)+'">Excluir</button></article>').join(''):'<div class="tr-empty">Nenhum item de treinamento cadastrado.</div>';$('#trList').querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click',()=>{if(!confirm('Excluir este item de treinamento?'))return;data.items=data.items.filter(x=>x.id!==b.dataset.delete);save();render()}))}
- function renderExercises(){const list=$('#trExerciseList'),detail=$('#trExerciseDetail');list.innerHTML=exercises.map((e,i)=>'<button class="tr-exercise '+(i===data.active?'selected':'')+'" data-ex="'+i+'"><span>'+(i+1)+'</span><b>'+esc(e.title)+'</b><small>'+(data.done.includes(i)?'Concluído':'Pendente')+'</small></button>').join('');list.querySelectorAll('[data-ex]').forEach(b=>b.addEventListener('click',()=>{data.active=Number(b.dataset.ex);save();renderExercises()}));const e=exercises[data.active]||exercises[0];detail.innerHTML='<span class="eyebrow">ETAPA '+(data.active+1)+' DE 4</span><h3>'+esc(e.title)+'</h3><p>'+esc(e.goal)+'</p><div class="training-alert subtle"><b>Orientação</b><span>'+esc(e.hint)+'</span></div><label class="tr-check"><input type="checkbox" id="trCheck" '+(data.done.includes(data.active)?'checked':'')+'> Realizei esta atividade no ambiente de treinamento</label><button class="btn primary" id="trComplete">'+(data.done.includes(data.active)?'Atualizar conclusão':'Marcar exercício como concluído')+'</button><p class="hint">A conclusão é autodeclarada nesta versão. Futuramente, a plataforma poderá verificar automaticamente campos, modelos e relações exigidos em cada exercício.</p>';$('#trComplete').addEventListener('click',()=>{const done=new Set(data.done);if($('#trCheck').checked)done.add(data.active);else done.delete(data.active);data.done=[...done].sort();save();renderExercises();render()})}
+ const $=s=>root.querySelector(s);
+ const root=document.createElement('div');root.id='training';root.className='page omeka-training';
+ const main=document.querySelector('main');if(!main||document.querySelector('#training'))return;
+ const oldNav=document.querySelector('.module-nav');
+ if(oldNav){const old=oldNav.querySelector('[data-page="training"]');if(old)old.remove();const b=document.createElement('button');b.className='nav module-link';b.dataset-page='training';b.innerHTML='<span class="module-num">05</span><span>Omeka S</span>';oldNav.appendChild(b);b.onclick=()=>open();}
+ const footer=main.querySelector('footer');if(footer)footer.insertAdjacentElement('beforebegin',root);else main.appendChild(root);
+ function open(){if(typeof window.page==='function')window.page('training');else{document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id==='training'));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page==='training'))}document.querySelector('#pagetitle').textContent='Omeka S · Treinamento';render()}
+ function render(){root.innerHTML=
+ '<div class="om-shell"><aside class="om-sidebar"><div class="om-brand">Repositório Digital do Samba e do Carnaval <small>(RDSC) · Ambiente de treinamento</small></div><div class="om-user"><span>♙ Usuário de treinamento</span><button id="omReset" title="Reiniciar dados de treino">⚙</button></div><div class="om-search"><input id="omSearch" placeholder="Search items"><button id="omSearchBtn">⌕</button></div><button class="om-nav" data-page="sites">▣ Sites</button><div class="om-navlabel">RESOURCES</div><button class="om-nav '+(page==='items'?'active':'')+'" data-page="items">⬡ Items</button><button class="om-subnav" data-page="media">›　Media</button><button class="om-nav" data-page="sets">♧ Item sets</button><button class="om-nav" data-page="vocab">▤ Vocabularies</button><button class="om-nav" data-page="templates">▧ Resource templates</button><div class="om-navlabel">ADMIN</div><button class="om-nav" data-page="users">♙ Users</button><button class="om-nav" data-page="assets">▧ Assets</button><div class="om-sidebar-foot">SIMULAÇÃO LOCAL · DADOS FICTÍCIOS</div></aside><section class="om-work"><div class="om-top"><span id="omCrumb">ITEMS</span><h1 id="omHeading">Items</h1><span class="om-spacer"></span><span class="om-eye">◉</span><button id="omCancel" class="om-btn">Cancel</button><button id="omAdd" class="om-btn primary">Add new item</button></div><div id="omContent"></div></section><aside class="om-properties" id="omProperties"></aside></div>';
+ root.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>{page=b.dataset.page;editId=null;render()}));
+ $('#omReset').onclick=()=>{if(!confirm('Apagar somente os dados deste ambiente de treinamento?'))return;db=loadDefaults();save();render()};
+ $('#omSearchBtn').onclick=()=>{page='items';render();const q=$('#omSearch').value.toLowerCase();$('#omTable').innerHTML=itemRows(db.items.filter(x=>x.title.toLowerCase().includes(q)))};
+ renderPage();
+ }
+ function loadDefaults(){return {items:[],media:[],sets:[],templates:initialTemplates,vocabs:vocab.map(x=>({label:x,terms:[]})),done:[]}}
+ function setHeading(crumb,title,addLabel){$('#omCrumb').textContent=crumb.toUpperCase();$('#omHeading').textContent=title;$('#omAdd').textContent=addLabel||'Add new item';$('#omAdd').hidden=!addLabel;$('#omCancel').hidden=page!=='edit';$('#omCancel').onclick=()=>{page='items';editId=null;render()};}
+ function renderPage(){
+  const c=$('#omContent'),p=$('#omProperties');p.innerHTML='<div class="om-prop-head">Click on a property to add it to the edit panel.</div><input class="om-filter" placeholder="Filter properties"><div class="om-vocab-list"><button>DUBLIN CORE (55)　›</button><button>PREMIS 3 (37)　›</button><button>RECORDS IN CONTEXTS (555)　›</button></div>';
+  if(page==='edit'){renderEditor();return}
+  if(page==='items'){setHeading('ITEMS','Items','Add new item');c.innerHTML='<div class="om-list-tools"><span>1 of 1　 ‹　 ›　 '+db.items.length+' results</span><span>Sort by　<select><option>ID</option><option>Title</option></select>　<select><option>Descending</option><option>Ascending</option></select> <button class="om-btn">Sort</button></span></div><div class="om-table-wrap"><table class="om-table"><thead><tr><th></th><th>Title</th><th>Resource class</th><th>Owner</th><th>Created</th><th></th></tr></thead><tbody id="omTable">'+itemRows(db.items)+'</tbody></table></div>';}
+  else if(page==='templates'){setHeading('RESOURCE TEMPLATES','Resource templates','Add new resource template');c.innerHTML='<div class="om-list-tools">1 of 1　 ‹　 ›　 1–'+db.templates.length+' of '+db.templates.length+'</div><table class="om-table"><thead><tr><th>Label</th><th>Class</th><th>Owner</th></tr></thead><tbody>'+db.templates.map((t,i)=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(t.cls)+'</td><td>Usuário de treinamento</td></tr>').join('')+'</tbody></table>';}
+  else if(page==='vocab'){setHeading('VOCABULARIES','Vocabularies');c.innerHTML='<div class="om-list-tools">Vocabulários do projeto · '+db.vocabs.length+' categorias</div><table class="om-table"><thead><tr><th>Label</th><th>Prefix</th><th>Terms</th></tr></thead><tbody>'+db.vocabs.map(v=>'<tr><td>'+esc(v.label)+'</td><td>rico / projeto</td><td>'+v.terms.length+'</td></tr>').join('')+'</tbody></table>';}
+  else if(page==='sets'){setHeading('ITEM SETS','Item sets','Add new item set');c.innerHTML=emptyState('Omeka could not find any item sets.');}
+  else if(page==='media'){setHeading('MEDIA','Media');c.innerHTML=emptyState('No media have been added in this training environment.');}
+  else if(page==='sites'){setHeading('SITES','Sites','Add new site');c.innerHTML=emptyState('No sites have been created in this training environment.');}
+  else if(page==='users'){setHeading('USERS','Users');c.innerHTML=emptyState('Training users are simulated. No real accounts are managed here.');}
+  else{setHeading('ASSETS','Assets');c.innerHTML=emptyState('No assets in the training environment.');}
+  $('#omAdd').onclick=()=>{if(page==='items'){editId=null;page='edit';render()}else if(page==='templates'){const label=prompt('Nome do modelo de recurso:');if(label){db.templates.push({label,cls:'rico:Record',fields:['dcterms:title','dcterms:description']});save();render()}}else if(page==='sets'){const label=prompt('Nome do conjunto de itens:');if(label){db.sets.push({label});save();render()}}else if(page==='sites'){alert('A criação de sites será adicionada em uma próxima etapa do simulador.')}};
+ }
+ function emptyState(msg){return '<div class="om-empty"><div class="om-cube">⬡</div><p>'+esc(msg)+'</p></div>'}
+ function itemRows(items){return items.length?items.map(x=>'<tr><td>□</td><td><button class="om-link" data-open="'+esc(x.id)+'">'+esc(x.title)+'</button></td><td>'+esc(x.cls)+'</td><td>Usuário de treinamento</td><td>'+esc(x.created)+'</td><td><button class="om-icon" data-edit="'+esc(x.id)+'">✎</button><button class="om-icon" data-del="'+esc(x.id)+'">▤</button></td></tr>').join(''):'<tr><td colspan="6" class="om-no-results">Nenhum item cadastrado. Clique em “Add new item” para começar.</td></tr>'}
+ function renderEditor(){
+  setHeading('ITEMS','New item','Add');
+  const item=db.items.find(x=>x.id===editId)||{id:'',title:'',template:'',cls:'',values:{},media:[],sets:[]};
+  selectedProps=Object.keys(item.values||{});
+  $('#omAdd').textContent='Add';$('#omAdd').onclick=()=>saveItem();
+  $('#omContent').innerHTML='<div class="om-edit-tabs"><button class="selected" data-tab="values">Values</button><button data-tab="media">Media</button><button data-tab="sets">Item sets</button><button data-tab="sites">Sites</button><button data-tab="advanced">Advanced</button><button data-tab="mapping">Mapping</button></div><div id="omTabContent"></div>';
+  root.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;root.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('selected',x===b));renderTab(item)});
+  renderTab(item);
+  $('#omCancel').hidden=false;$('#omCancel').onclick=()=>{page='items';editId=null;render()};
+  $('#omProperties').innerHTML='<div class="om-prop-head">Click on a property to add it to the edit panel. <button id="omCloseProp">×</button></div><input class="om-filter" id="omPropFilter" placeholder="Filter properties"><div class="om-vocab-list" id="omPropGroups"></div>';
+  renderPropertyDrawer(item);
+ }
+ function renderTab(item){
+  const box=$('#omTabContent');if(!box)return;
+  if(activeTab==='values'){
+   const fields=selectedProps.length?selectedProps:['dcterms:title','dcterms:description'];
+   box.innerHTML='<div class="om-select-row"><label>Resource template</label><select id="omTemplate"><option value="">Select a template</option>'+db.templates.map(t=>'<option value="'+esc(t.label)+'" '+(item.template===t.label?'selected':'')+'>'+esc(t.label)+'</option>').join('')+'</select></div><div class="om-select-row"><label>Class</label><select id="omClass"><option value="">Select a class</option>'+models.map(m=>'<option value="'+esc(m.cls)+'" '+(item.cls===m.cls?'selected':'')+'>'+esc(m.cls)+'</option>').join('')+'</select></div><div id="omFields">'+fields.map(f=>fieldHtml(f,item.values?.[f]||'')).join('')+'</div>';
+   $('#omTemplate').onchange=()=>{const t=db.templates.find(x=>x.label===$('#omTemplate').value);if(t){item.template=t.label;item.cls=t.cls;selectedProps=[...new Set(['dcterms:title','dcterms:description',...t.fields])];renderTab(item);renderPropertyDrawer(item)}};
+   $('#omClass').onchange=()=>{item.cls=$('#omClass').value};
+   $('#omFields').querySelectorAll('[data-prop]').forEach(el=>el.addEventListener('input',()=>{item.values[el.dataset.prop]=el.value}));
+   $('#omFields').querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{selectedProps=selectedProps.filter(x=>x!==b.dataset.remove);delete item.values[b.dataset.remove];renderTab(item);renderPropertyDrawer(item)});
+  }else if(activeTab==='media'){box.innerHTML='<div class="om-tab-content"><h3>Media</h3><p>Adicione arquivos de treinamento ao item.</p><input type="file" id="omMediaFile" multiple><div class="om-hint">Arquivos selecionados são apenas demonstrativos nesta versão; não são enviados ao acervo real.</div></div>'}
+  else if(activeTab==='sets'){box.innerHTML='<div class="om-tab-content"><h3>Item sets</h3>'+db.sets.map(s=>'<label class="om-check"><input type="checkbox" value="'+esc(s.label)+'"> '+esc(s.label)+'</label>').join('')+'<p class="om-hint">Selecione os conjuntos aos quais o item pertence.</p></div>'}
+  else if(activeTab==='sites'){box.innerHTML='<div class="om-tab-content"><h3>Sites</h3><p>Selecione sites de treinamento para associar este item.</p><div class="om-hint">Nenhum site de treinamento cadastrado.</div></div>'}
+  else if(activeTab==='advanced'){box.innerHTML='<div class="om-tab-content"><h3>Advanced</h3><label class="om-check"><input type="checkbox" id="omPrivate"> Private item</label><label>Owner<input value="Usuário de treinamento" disabled></label><p class="om-hint">As configurações avançadas são simuladas.</p></div>'}
+  else{box.innerHTML='<div class="om-tab-content"><h3>Mapping</h3><p>Dados de localização podem ser associados pela propriedade rico:geographicalCoordinates.</p><div class="om-hint">O mapa será habilitado quando o item possuir coordenadas válidas.</div></div>'}
+ }
+ function fieldHtml(prop,value){const info=propInfo[prop]||[prop.split(':').pop(),'Property from the selected vocabulary.','Propriedade do vocabulário selecionado.'];return '<div class="om-field"><div class="om-field-label"><b>'+esc(info[0])+'　⌄</b><span>'+esc(info[1])+'</span><small>'+esc(prop)+'</small><em>'+esc(info[2])+'</em></div><div class="om-field-input"><textarea data-prop="'+esc(prop)+'" placeholder=""></textarea><div class="om-field-actions"><button type="button">＋</button><button type="button">▦ Text</button><button type="button">♧ Omeka resource</button><button type="button">↗ URI</button><button type="button" data-remove="'+esc(prop)+'">×</button></div></div></div>'}
+ function renderPropertyDrawer(item){const host=$('#omPropGroups');if(!host)return;const groups=[['DUBLIN CORE (55)',['dcterms:title','dcterms:description']],['PREMIS 3 (37)',['premis:hasMessageDigest','premis:hasSize']],['RECORDS IN CONTEXTS (555)',Object.keys(propInfo).filter(x=>x.startsWith('rico:'))]];host.innerHTML=groups.map(g=>'<div class="om-prop-group"><button>'+g[0]+'　›</button><div>'+g[1].map(prop=>'<button class="om-prop-option" data-add-prop="'+esc(prop)+'">'+esc(prop)+'</button>').join('')+'</div></div>').join('');host.querySelectorAll('[data-add-prop]').forEach(b=>b.onclick=()=>{const prop=b.dataset.addProp;if(!selectedProps.includes(prop)){selectedProps.push(prop);renderTab(item);renderPropertyDrawer(item)}});$('#omCloseProp').onclick=()=>{$('#omProperties').classList.toggle('collapsed')};$('#omPropFilter').oninput=()=>{const q=$('#omPropFilter').value.toLowerCase();host.querySelectorAll('[data-add-prop]').forEach(b=>b.hidden=!b.textContent.toLowerCase().includes(q))}}
+ function saveItem(){const item=db.items.find(x=>x.id===editId)||{id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),values:{},media:[],sets:[]};const title=item.values['dcterms:title']||$('#omFields textarea[data-prop="dcterms:title"]')?.value||'';item.title=title.trim()||'Untitled resource';item.cls=$('#omClass')?.value||item.cls||'';item.template=$('#omTemplate')?.value||item.template||'';if(!db.items.some(x=>x.id===item.id)){item.created=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});db.items.push(item)}else Object.assign(db.items.find(x=>x.id===item.id),item);if(!save())return;page='items';editId=null;render()}
+ root.addEventListener('click',ev=>{const e=ev.target.closest('[data-edit],[data-open],[data-del]');if(!e)return;if(e.dataset.edit||e.dataset.open){editId=e.dataset.edit||e.dataset.open;page='edit';render()}else if(e.dataset.del){if(confirm('Excluir este item de treinamento?')){db.items=db.items.filter(x=>x.id!==e.dataset.del);save();render()}}});
  render();
 })();
