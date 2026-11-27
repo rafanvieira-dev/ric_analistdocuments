@@ -681,3 +681,76 @@ button:disabled{cursor:not-allowed}
  .training-alert{flex-direction:column;gap:5px}
  .tr-exercise-detail{padding:13px}
 }
+
+
+/* Omeka S administrative simulator — interface modeled on the supplied screenshots */
+.omeka-training{padding:0!important;margin:0!important;background:#fff!important;min-height:calc(100vh - 110px)}
+.omeka-training.show{display:block!important}
+.om-shell{display:grid;grid-template-columns:260px minmax(480px,1fr) 340px;min-height:calc(100vh - 110px);background:#fff;color:#555;font-family:Arial,Helvetica,sans-serif;font-size:14px;margin:-18px -24px -28px}
+.om-sidebar{background:#3e4e63;color:#dce5ee;display:flex;flex-direction:column;min-height:calc(100vh - 110px)}
+.om-brand{background:#253244;padding:13px 16px;font-size:14px;line-height:1.45;min-height:58px;color:#e9f0f7}
+.om-brand small{display:block;font-size:11px;color:#b8c7d7}
+.om-user{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:11px}
+.om-user button{background:#253244;border:0;color:#fff;border-radius:3px;padding:5px 8px;cursor:pointer}
+.om-search{display:flex;padding:8px 14px 15px}
+.om-search input{min-width:0;flex:1;padding:9px 8px;border:0;font-style:italic}
+.om-search button{background:#253244;color:white;border:0;padding:0 12px;font-size:20px}
+.om-nav,.om-subnav{display:block;width:100%;text-align:left;border:0;background:transparent;color:#dce5ee;padding:7px 16px;cursor:pointer;font-size:14px}
+.om-nav:hover,.om-subnav:hover,.om-nav.active{background:#304157;color:#fff}
+.om-navlabel{padding:10px 15px 4px;margin-top:7px;border-top:1px solid #506077;font-size:11px;font-weight:bold;color:#c2cedb}
+.om-subnav{padding-left:38px}
+.om-sidebar-foot{margin-top:auto;padding:13px 15px;font-size:9px;letter-spacing:.7px;color:#aebdcd;border-top:1px solid #536176}
+.om-work{min-width:0;background:#fff;padding:0 16px 25px}
+.om-top{height:55px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #ddd;margin:0 -16px 10px;padding:0 16px}
+.om-top>span:first-child{font-size:11px;background:#f0f1f2;padding:7px 9px;color:#687887}
+.om-top h1{font-size:23px;font-weight:400;margin:0;color:#555}
+.om-spacer{flex:1}
+.om-eye{color:#687887;font-size:18px}
+.om-btn{border:1px solid #ccc;background:#f6f6f6;border-radius:2px;padding:8px 14px;color:#666;cursor:pointer}
+.om-btn.primary{background:#e9e9e9;color:#555}
+.om-btn:hover{background:#e1e5e8}
+.om-list-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;color:#777;font-size:12px;border-bottom:1px solid #e5e5e5}
+.om-list-tools select{padding:5px;border:1px solid #ccc;color:#666;background:white}
+.om-table{width:100%;border-collapse:collapse;font-size:14px}
+.om-table th{text-align:left;font-weight:600;color:#555;padding:9px 8px;border-bottom:1px solid #ccc}
+.om-table td{padding:8px;border-bottom:1px solid #ddd;color:#666}
+.om-table tr:hover td{background:#fafafa}
+.om-link{border:0;background:none;color:#b21e18;padding:0;text-align:left;cursor:pointer;font:inherit}
+.om-icon{border:0;background:none;color:#b21e18;cursor:pointer;font-size:15px}
+.om-no-results{text-align:center!important;padding:35px!important;color:#888!important}
+.om-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:380px;color:#777;font-size:20px}
+.om-cube{font-size:50px;color:#eee}
+.om-properties{border-left:1px solid #ddd;background:#f8f8f8;min-width:0;padding:0 10px}
+.om-prop-head{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#e2e2e2;margin:0 -10px 12px;padding:14px 12px;color:#666;font-weight:600;font-size:13px}
+.om-prop-head button{border:0;background:none;font-size:20px;color:#777;cursor:pointer}
+.om-filter{width:100%;padding:8px;border:1px solid #ddd;margin-bottom:10px;font-style:italic}
+.om-vocab-list{display:grid;gap:5px}
+.om-vocab-list>button,.om-prop-group>button{width:100%;text-align:left;padding:10px;background:#fff;border:1px solid #ddd;color:#555;font-size:10px;cursor:pointer}
+.om-prop-group>div{display:none;padding:4px;background:#fff;border:1px solid #ddd;border-top:0}
+.om-prop-group:focus-within>div,.om-prop-group:hover>div{display:grid}
+.om-prop-option{border:0;background:#fff;text-align:left;padding:7px;color:#a31d17;font-size:11px;cursor:pointer}
+.om-prop-option:hover{background:#f4f0ee}
+.om-edit-tabs{display:flex;gap:4px;border-bottom:1px solid #ddd;margin-bottom:13px;flex-wrap:wrap}
+.om-edit-tabs button{padding:9px 13px;border:1px solid #ddd;border-bottom:0;background:#f8f8f8;color:#666;cursor:pointer}
+.om-edit-tabs button.selected{background:#fff;color:#555;font-weight:600}
+.om-select-row{display:grid;grid-template-columns:28% 1fr;align-items:center;gap:10px;background:#f2f2f2;margin:7px 0;padding:9px 7px;color:#666}
+.om-select-row select{width:100%;padding:8px;border:1px solid #ccc;background:white;color:#666}
+.om-field{display:grid;grid-template-columns:28% 1fr;gap:10px;background:#f2f2f2;margin:7px 0;padding:9px 7px 7px}
+.om-field-label{display:flex;flex-direction:column;gap:5px;color:#666}
+.om-field-label b{font-weight:400}
+.om-field-label span{font-size:12px}
+.om-field-label small{font-size:11px;color:#777}
+.om-field-label em{font-size:10px;color:#8a8a8a;font-style:normal}
+.om-field-input textarea{display:block;width:100%;min-height:64px;border:1px solid #ccc;padding:7px;resize:vertical;background:#fff}
+.om-field-actions{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px}
+.om-field-actions button{border:1px solid #ccc;border-radius:2px;background:#e8e8e8;padding:6px 9px;color:#666;cursor:pointer}
+.om-field-actions button:last-child{margin-left:auto;color:#a11}
+.om-tab-content{padding:18px;background:#fafafa;min-height:240px}
+.om-tab-content h3{font-size:16px;font-weight:500}
+.om-tab-content label{display:block;margin:12px 0;color:#666}
+.om-tab-content input:not([type=checkbox]){display:block;padding:8px;border:1px solid #ccc;margin-top:5px;max-width:450px;width:100%}
+.om-check{display:block;margin:10px 0}
+.om-hint{padding:12px;background:#f0f2f3;color:#777;font-size:12px;margin-top:12px}
+.om-properties.collapsed{display:none}
+@media(max-width:1200px){.om-shell{grid-template-columns:220px minmax(400px,1fr)}.om-properties{grid-column:2;border-left:0;border-top:1px solid #ddd;padding:10px}}
+@media(max-width:900px){.omeka-training{padding:0!important}.om-shell{display:block;margin:-12px -11px 0;min-height:calc(100vh - 90px)}.om-sidebar{min-height:0}.om-sidebar-foot{display:none}.om-work{padding:0 10px 20px}.om-top{margin:0 -10px 8px;padding:0 10px}.om-top h1{font-size:18px}.om-top .om-btn{padding:7px 9px;font-size:11px}.om-properties{border:1px solid #ddd;padding:10px}.om-select-row,.om-field{grid-template-columns:1fr}.om-list-tools{align-items:flex-start;flex-direction:column}.om-table{font-size:12px}.om-table th,.om-table td{padding:7px 5px}}
