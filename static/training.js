@@ -57,7 +57,7 @@
  const root=document.createElement('div');root.id='training';root.className='page omeka-training';
  const main=document.querySelector('main');if(!main||document.querySelector('#training'))return;
  const oldNav=document.querySelector('.module-nav');
- if(oldNav){const old=oldNav.querySelector('[data-page="training"]');if(old)old.remove();const b=document.createElement('button');b.className='nav module-link';b.dataset-page='training';b.innerHTML='<span class="module-num">05</span><span>Omeka S</span>';oldNav.appendChild(b);b.onclick=()=>open();}
+ if(oldNav){const navBtn=document.createElement('button');navBtn.setAttribute('class','nav module-link');navBtn.setAttribute('data-page','training');navBtn.textContent='05  Omeka S';oldNav.appendChild(navBtn);navBtn.addEventListener('click',open);}
  const footer=main.querySelector('footer');if(footer)footer.insertAdjacentElement('beforebegin',root);else main.appendChild(root);
  function open(){if(typeof window.page==='function')window.page('training');else{document.querySelectorAll('.page').forEach(x=>x.classList.toggle('show',x.id==='training'));document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('active',x.dataset.page==='training'))}document.querySelector('#pagetitle').textContent='Omeka S · Treinamento';render()}
  function render(){root.innerHTML=
